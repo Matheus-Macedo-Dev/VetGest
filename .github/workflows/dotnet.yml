@@ -1,13 +1,14 @@
-name: .NET
+name: VetGest CI/CD
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  quality:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,8 +23,14 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore VetGest.Backend.sln
 
-      - name: Build
+      - name: Restore web dependencies
+        run: dotnet restore VetGest.Web.sln
+
+      - name: Build backend
         run: dotnet build VetGest.Backend.sln --no-restore --configuration Release
+
+      - name: Build web
+        run: dotnet build VetGest.Web.sln --no-restore --configuration Release
 
       - name: Test with coverage gate
         run: |
@@ -45,3 +52,100 @@ jobs:
         with:
           name: coverage-report
           path: coverage/
+
+  package-api:
+    if: github.event_name != 'pull_request'
+    needs: quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Publish API
+        run: dotnet publish src/Backend/VetGest.API/VetGest.API.csproj --configuration Release --output ./publish/api
+
+      - name: Upload API artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-publish
+          path: publish/api/
+
+  package-web:
+    if: github.event_name != 'pull_request'
+    needs: quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Configure production API URL
+        env:
+          API_BASE_URL: ${{ vars.VETGEST_API_BASE_URL }}
+        run: |
+          test -n "$API_BASE_URL"
+          jq --arg apiBaseUrl "$API_BASE_URL" '.ApiBaseUrl = $apiBaseUrl' \
+            src/Frontend/VetGest.Web/wwwroot/appsettings.json > /tmp/appsettings.json
+          mv /tmp/appsettings.json src/Frontend/VetGest.Web/wwwroot/appsettings.json
+
+      - name: Publish web
+        run: dotnet publish src/Frontend/VetGest.Web/VetGest.Web.csproj --configuration Release --output ./publish/web
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-publish
+          path: publish/web/wwwroot/
+
+  deploy-api:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: package-api
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Download API artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: api-publish
+          path: publish/api
+
+      - name: Deploy API to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.VETGEST_API_APP_NAME }}
+          publish-profile: ${{ secrets.VETGEST_API_PUBLISH_PROFILE }}
+          package: publish/api
+
+  deploy-web:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: package-web
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Download web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-publish
+          path: publish/web
+
+      - name: Deploy web to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.VETGEST_STATIC_WEB_APPS_TOKEN }}
+          action: upload
+          app_location: publish/web
+          output_location: ""
+          skip_app_build: true

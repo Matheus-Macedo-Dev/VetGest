@@ -56,6 +56,28 @@ dotnet build VetGest.Web.sln
 dotnet test VetGest.Backend.sln
 ```
 
+## Azure deployment
+
+The GitHub Actions workflow builds and tests both solutions, publishes the API and Web as separate artifacts, and deploys them only after a push to `main`.
+
+The current database remains Azure SQL. No Supabase or PostgreSQL migration is part of this deployment slice.
+
+Configure these GitHub production environment values before enabling deployment:
+
+- Variable `VETGEST_API_APP_NAME`: Azure App Service name for the API.
+- Variable `VETGEST_API_BASE_URL`: public HTTPS URL of the API, including the trailing slash.
+- Secret `VETGEST_API_PUBLISH_PROFILE`: App Service publish profile XML.
+- Secret `VETGEST_STATIC_WEB_APPS_TOKEN`: deployment token for the Static Web App.
+
+Configure these API App Settings in Azure App Service, without committing them:
+
+- `ConnectionStrings__DefaultConnection`: Azure SQL connection string.
+- `Jwt__SecretKey`: production JWT signing key.
+- `Jwt__Issuer` and `Jwt__Audience`: production token values.
+- `Cors__AllowedOrigins__0`: public HTTPS URL of the Static Web App.
+
+The free or consumption tiers may sleep, have quotas, and are not equivalent to production-grade availability. Apply database migrations through a controlled release step before serving traffic; production startup does not apply migrations automatically.
+
 ## Authenticated pet registration backend
 
 The backend now exposes the first authenticated vertical slice:
