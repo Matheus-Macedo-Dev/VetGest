@@ -1,0 +1,51 @@
+@page "/pets/new"
+@attribute [Authorize]
+@inject PetService PetService
+@inject NavigationManager Navigation
+
+<PageTitle>Cadastrar pet | VetGest</PageTitle>
+
+<section class="form-page" aria-labelledby="new-pet-title">
+    <div class="form-heading"><span class="section-kicker">Novo registro</span><h1 id="new-pet-title">Cadastrar pet</h1><p>Registre informações básicas. Elas ajudam a organizar o acompanhamento.</p></div>
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+        <DataAnnotationsValidator />
+        @if (_error is not null) { <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)">@_error</MudAlert> }
+        <MudTextField @bind-Value="_model.Name" For="@(() => _model.Name)" Label="Nome" Required="true" autocomplete="off" />
+        <MudSelect @bind-Value="_model.Species" For="@(() => _model.Species)" Label="Espécie" Required="true">
+            <MudSelectItem Value="@("Dog")">Cão</MudSelectItem>
+            <MudSelectItem Value="@("Cat")">Gato</MudSelectItem>
+        </MudSelect>
+        <MudTextField @bind-Value="_model.Breed" For="@(() => _model.Breed)" Label="Raça (opcional)" autocomplete="off" />
+        <MudDatePicker @bind-Date="_dateOfBirth" Label="Data de nascimento (opcional)" />
+        <MudNumericField @bind-Value="_model.CurrentWeight" For="@(() => _model.CurrentWeight)" Label="Peso atual (kg)" Min="0.01m" Max="999.99m" Adornment="Adornment.End" AdornmentText="kg" />
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isLoading" FullWidth="true" StartIcon="@Icons.Material.Filled.Save">
+            @(_isLoading ? "Salvando..." : "Salvar pet")
+        </MudButton>
+        <ValidationSummary />
+    </EditForm>
+</section>
+
+@code {
+    private readonly CreatePetRequest _model = new();
+    private DateTime? _dateOfBirth;
+    private bool _isLoading;
+    private bool _offline;
+    private string? _error;
+
+    private async Task SubmitAsync()
+    {
+        _model.DateOfBirth = _dateOfBirth;
+        _isLoading = true;
+        _error = null;
+        var result = await PetService.CreateAsync(_model);
+        _isLoading = false;
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("pets");
+            return;
+        }
+
+        _offline = result.IsOffline;
+        _error = result.Error;
+    }
+}

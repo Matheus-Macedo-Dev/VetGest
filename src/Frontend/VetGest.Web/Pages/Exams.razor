@@ -1,0 +1,106 @@
+@page "/exams"
+@attribute [Authorize]
+@inject PetService PetService
+@inject PregnancyService PregnancyService
+@inject ExaminationService ExaminationService
+
+<PageTitle>Exames e lembretes | VetGest</PageTitle>
+
+<section class="exams-page" aria-labelledby="exams-title">
+    @if (_isLoading)
+    {
+        <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando seus exames e lembretes...</span></div>
+    }
+    else if (_state == ExamsPageState.Unauthorized)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" /><div><strong>Sessão não autorizada</strong><span>Entre novamente para acessar seus lembretes.</span><MudButton Href="login" Variant="Variant.Outlined" Color="Color.Primary">Entrar</MudButton></div></div>
+    }
+    else if (_state == ExamsPageState.Offline)
+    {
+        <div class="state-panel" role="alert"><MudIcon Icon="@Icons.Material.Filled.CloudOff" Size="Size.Large" /><div><strong>Lembretes indisponíveis offline</strong><span>Seus registros privados não ficam armazenados neste dispositivo. Conecte-se e tente novamente.</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" @onclick="LoadAsync">Tentar novamente</MudButton></div></div>
+    }
+    else if (_state == ExamsPageState.Error)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" /><div><strong>Não foi possível carregar os lembretes</strong><span>@_error</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" @onclick="LoadAsync">Tentar novamente</MudButton></div></div>
+    }
+    else if (_pet is null)
+    {
+        <div class="state-panel"><MudIcon Icon="@Icons.Material.Filled.Pets" Size="Size.Large" /><div><strong>Comece cadastrando um pet</strong><span>Os lembretes precisam de um pet pertencente à sua conta.</span><MudButton Href="pets/new" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Cadastrar pet</MudButton></div></div>
+    }
+    else if (_pregnancy is null)
+    {
+        <div class="state-panel"><MudIcon Icon="@Icons.Material.Filled.PregnantWoman" Size="Size.Large" /><div><strong>Nenhuma gestação selecionada</strong><span>Registre uma gestação para @_pet.Name antes de consultar os lembretes.</span><MudButton Href=@($"pets/{_pet.Id}/pregnancy/new") Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Registrar gestação</MudButton></div></div>
+    }
+    else
+    {
+        <div class="page-heading"><div><span class="section-kicker">Acompanhamento estimado</span><h1 id="exams-title">Exames e lembretes</h1><p>Organize os próximos assuntos para conversar com o médico-veterinário. As datas são estimativas, não um cronograma garantido.</p></div><MudButton Href="/" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Today">Voltar para Hoje</MudButton></div>
+        <section class="diary-context" aria-label="Contexto da gestação"><MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" /><div><strong>Gestação de @_pet.Name</strong><span>Previsão estimada do parto: @_pregnancy.EstimatedDueDate.ToString("dd/MM/yyyy")</span></div></section>
+        <div class="exams-notice" role="note"><MudIcon Icon="@Icons.Material.Filled.Info" aria-hidden="true" /><span>Use esta lista para se preparar para a conversa com seu médico-veterinário. A necessidade e o momento de cada exame dependem da avaliação profissional.</span></div>
+        @if (_reminders.Count == 0)
+        {
+            <div class="state-panel"><MudIcon Icon="@Icons.Material.Filled.EventAvailable" Size="Size.Large" /><div><strong>Nenhum lembrete disponível</strong><span>Não há lembretes de exame para esta gestação no momento.</span></div></div>
+        }
+        else
+        {
+            <section class="exams-list" aria-labelledby="reminders-title"><div class="section-heading"><div><span class="section-kicker">Linha do tempo</span><h2 id="reminders-title">Lembretes da gestação</h2></div><span class="entry-count">@_reminders.Count lembrete(s)</span></div>
+                @foreach (var reminder in _reminders)
+                {
+                    <article class="exam-item">
+                        <div class="exam-date"><strong>@FormatDate(reminder.EstimatedDate)</strong><span>data estimada</span></div>
+                        <div><div class="exam-meta"><span class="exam-status @StatusClass(reminder)">@StatusLabel(reminder)</span>@if (!string.IsNullOrWhiteSpace(reminder.RecommendedWindow)) { <span>@reminder.RecommendedWindow</span> }</div><h2>@reminder.Title</h2><p>@reminder.Description</p></div>
+                    </article>
+                }
+            </section>
+            <p class="exam-disclaimer"><strong>Importante:</strong> @_reminders[0].Disclaimer</p>
+        }
+        <div class="result-actions"><MudButton Href="/" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Today">Ir para Hoje</MudButton><MudButton Href="diary" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.MenuBook">Abrir Diário</MudButton></div>
+    }
+</section>
+
+@code {
+    private enum ExamsPageState { Ready, Error, Offline, Unauthorized }
+
+    private ExamsPageState _state;
+    private bool _isLoading = true;
+    private string? _error;
+    private PetDto? _pet;
+    private PregnancyDto? _pregnancy;
+    private IReadOnlyList<ExaminationReminderDto> _reminders = [];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _state = ExamsPageState.Ready;
+        _error = null;
+        var pets = await PetService.GetPetsAsync();
+        if (!pets.Succeeded) { SetLoadFailure(pets); return; }
+        _pet = pets.Data?.FirstOrDefault(item => item.IsActive);
+        if (_pet is null) { _isLoading = false; return; }
+        var pregnancy = await PregnancyService.GetCurrentAsync(_pet.Id);
+        if (!pregnancy.Succeeded)
+        {
+            if (pregnancy.IsNotFound) { _pregnancy = null; _isLoading = false; return; }
+            SetLoadFailure(pregnancy);
+            return;
+        }
+        if (pregnancy.Data is null) { _state = ExamsPageState.Error; _error = "Não foi possível carregar a gestação."; _isLoading = false; return; }
+        _pregnancy = pregnancy.Data;
+        var exams = await ExaminationService.GetAsync(_pet.Id, _pregnancy.Id);
+        if (!exams.Succeeded) { SetLoadFailure(exams); return; }
+        _reminders = exams.Data ?? [];
+        _isLoading = false;
+    }
+
+    private void SetLoadFailure<T>(ApiCallResult<T> result)
+    {
+        _isLoading = false;
+        _state = result.IsUnauthorized ? ExamsPageState.Unauthorized : result.IsOffline ? ExamsPageState.Offline : ExamsPageState.Error;
+        _error = result.Error;
+    }
+
+    private static string FormatDate(DateOnly? date) => date?.ToString("dd/MM/yyyy") ?? "A definir";
+    private static string StatusLabel(ExaminationReminderDto reminder) => reminder.IsPast ? "Passado" : reminder.IsDueSoon ? "Próximo" : "Futuro";
+    private static string StatusClass(ExaminationReminderDto reminder) => reminder.IsPast ? "exam-status--past" : reminder.IsDueSoon ? "exam-status--soon" : "exam-status--upcoming";
+}

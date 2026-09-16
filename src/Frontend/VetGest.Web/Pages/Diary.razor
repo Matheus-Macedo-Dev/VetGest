@@ -1,0 +1,156 @@
+@page "/diary"
+@attribute [Authorize]
+@inject PetService PetService
+@inject PregnancyService PregnancyService
+@inject DiaryService DiaryService
+
+<PageTitle>Diário gestacional | VetGest</PageTitle>
+
+<section class="diary-page" aria-labelledby="diary-title">
+    @if (_isLoading)
+    {
+        <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando seu diário...</span></div>
+    }
+    else if (_state == DiaryPageState.Unauthorized)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" /><div><strong>Sessão não autorizada</strong><span>Entre novamente para acessar seus registros.</span><MudButton Href="login" Variant="Variant.Outlined" Color="Color.Primary">Entrar</MudButton></div></div>
+    }
+    else if (_state == DiaryPageState.Offline)
+    {
+        <div class="state-panel" role="alert"><MudIcon Icon="@Icons.Material.Filled.CloudOff" Size="Size.Large" /><div><strong>Diário indisponível offline</strong><span>Os registros privados não ficam armazenados neste dispositivo. Conecte-se e tente novamente.</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" @onclick="LoadAsync">Tentar novamente</MudButton></div></div>
+    }
+    else if (_state == DiaryPageState.Error)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" /><div><strong>Não foi possível carregar o diário</strong><span>@_error</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" @onclick="LoadAsync">Tentar novamente</MudButton></div></div>
+    }
+    else if (_pet is null)
+    {
+        <div class="state-panel"><MudIcon Icon="@Icons.Material.Filled.Pets" Size="Size.Large" /><div><strong>Comece cadastrando um pet</strong><span>O diário precisa de um pet pertencente à sua conta.</span><MudButton Href="pets/new" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Cadastrar pet</MudButton></div></div>
+    }
+    else if (_pregnancy is null)
+    {
+        <div class="state-panel"><MudIcon Icon="@Icons.Material.Filled.PregnantWoman" Size="Size.Large" /><div><strong>Nenhuma gestação selecionada</strong><span>Registre uma gestação para @_pet.Name antes de usar o diário.</span><MudButton Href=@($"pets/{_pet.Id}/pregnancy/new") Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Registrar gestação</MudButton></div></div>
+    }
+    else
+    {
+        <div class="page-heading"><div><span class="section-kicker">Registro de observações</span><h1 id="diary-title">Diário de @_pet.Name</h1><p>Registre o que observou, sem substituir uma avaliação veterinária.</p></div><MudButton Href="/" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Today">Voltar para Hoje</MudButton></div>
+        <section class="diary-context" aria-label="Contexto da gestação"><MudIcon Icon="@Icons.Material.Filled.PregnantWoman" aria-hidden="true" /><div><strong>Gestação em acompanhamento</strong><span>Previsão estimada: @_pregnancy.EstimatedDueDate.ToString("dd/MM/yyyy")</span></div></section>
+
+        <EditForm Model="_model" OnValidSubmit="CreateAsync" class="diary-form">
+            <DataAnnotationsValidator />
+            @if (_formError is not null) { <MudAlert Severity="@(_isDuplicate ? Severity.Warning : Severity.Error)">@_formError</MudAlert> }
+            @if (_validationErrors is not null) { <MudAlert Severity="Severity.Warning"><ValidationSummary />@foreach (var item in _validationErrors) { <div>@string.Join(" ", item.Value)</div> }</MudAlert> }
+            <MudDatePicker @bind-Date="_entryDate" Label="Data da observação" Required="true" Editable="true" MaxDate="@DateTime.Today" />
+            <div class="diary-form-grid">
+                <MudNumericField @bind-Value="_model.WeightKg" Label="Peso (kg)" Min="0.01m" Max="999.99m" InputMode="InputMode.numeric" Adornment="Adornment.End" AdornmentText="kg" />
+                <MudNumericField @bind-Value="_model.TemperatureCelsius" Label="Temperatura (°C)" Min="0m" Max="50m" InputMode="InputMode.numeric" Adornment="Adornment.End" AdornmentText="°C" />
+            </div>
+            <MudSelect @bind-Value="_model.Appetite" Label="Apetite (opcional)" Clearable="true">
+                <MudSelectItem Value="@("Normal")">Normal</MudSelectItem>
+                <MudSelectItem Value="@("Decreased")">Diminuído</MudSelectItem>
+                <MudSelectItem Value="@("Increased")">Aumentado</MudSelectItem>
+            </MudSelect>
+            <MudTextField @bind-Value="_model.Behavior" Label="Comportamento (opcional)" MaxLength="1000" />
+            <MudTextField @bind-Value="_symptomsText" Label="Sintomas observados (opcional)" HelperText="Separe itens por vírgula." MaxLength="1000" />
+            <MudTextField @bind-Value="_model.Notes" Label="Notas (opcional)" Lines="4" MaxLength="2000" />
+            <MudTextField @bind-Value="_photoReferencesText" Label="Referências de foto (opcional)" HelperText="Apenas referências de texto; uploads não estão disponíveis." MaxLength="2000" />
+            <p class="form-hint">Informe pelo menos uma observação além da data para salvar o registro.</p>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSubmitting" FullWidth="true" StartIcon="@Icons.Material.Filled.Save">@(_isSubmitting ? "Salvando..." : "Salvar observação")</MudButton>
+        </EditForm>
+
+        <section class="diary-section" aria-labelledby="trend-title"><div class="section-heading"><div><span class="section-kicker">Resumo acessível</span><h2 id="trend-title">Peso e temperatura</h2></div><MudIcon Icon="@Icons.Material.Filled.Timeline" aria-hidden="true" /></div>
+            @if (_trendEntries.Count == 0) { <p class="empty-note">Ainda não há peso ou temperatura registrados para resumir.</p> }
+            else { <div class="table-wrap"><table class="trend-table"><caption>Observações com peso ou temperatura, da mais recente para a mais antiga</caption><thead><tr><th scope="col">Data</th><th scope="col">Peso (kg)</th><th scope="col">Temperatura (°C)</th></tr></thead><tbody>@foreach (var entry in _trendEntries) { <tr><th scope="row">@entry.EntryDate.ToString("dd/MM/yyyy")</th><td>@FormatValue(entry.WeightKg, "kg")</td><td>@FormatValue(entry.TemperatureCelsius, "°C")</td></tr>}</tbody></table></div> }
+        </section>
+
+        <section class="diary-section" aria-labelledby="timeline-title"><div class="section-heading"><div><span class="section-kicker">Linha do tempo</span><h2 id="timeline-title">Observações registradas</h2></div><span class="entry-count">@_entries.Count registro(s)</span></div>
+            @if (_entries.Count == 0) { <p class="empty-note">Nenhuma observação registrada ainda. O primeiro registro pode conter qualquer observação além da data.</p> }
+            else { <div class="diary-timeline" role="list">@foreach (var entry in _entries) { <article class="diary-entry" role="listitem"><div class="diary-entry-date"><strong>@entry.EntryDate.ToString("dd")</strong><span>@entry.EntryDate.ToString("MMM", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"))</span><small>@entry.EntryDate.ToString("yyyy")</small></div><div class="diary-entry-body"><div class="entry-meta">@if (entry.WeightKg.HasValue) { <span>@entry.WeightKg.Value.ToString("0.##") kg</span> } @if (entry.TemperatureCelsius.HasValue) { <span>@entry.TemperatureCelsius.Value.ToString("0.##") °C</span> } @if (!string.IsNullOrWhiteSpace(entry.Appetite)) { <span>Apetite: @AppetiteLabel(entry.Appetite)</span> }</div>@if (!string.IsNullOrWhiteSpace(entry.Behavior)) { <p><strong>Comportamento:</strong> @entry.Behavior</p> }@if (entry.Symptoms.Length > 0) { <p><strong>Observações:</strong> @string.Join(", ", entry.Symptoms)</p> }@if (!string.IsNullOrWhiteSpace(entry.Notes)) { <p>@entry.Notes</p> }@if (entry.PhotoReferences.Length > 0) { <p class="reference-note"><MudIcon Icon="@Icons.Material.Filled.Link" aria-hidden="true" /> @entry.PhotoReferences.Length referência(s) de foto</p> }</div></article> }</div> }
+        </section>
+    }
+</section>
+
+@code {
+    private enum DiaryPageState { Ready, Error, Offline, Unauthorized }
+
+    private DiaryPageState _state;
+    private bool _isLoading = true;
+    private bool _isSubmitting;
+    private bool _isDuplicate;
+    private string? _error;
+    private string? _formError;
+    private IReadOnlyDictionary<string, string[]>? _validationErrors;
+    private PetDto? _pet;
+    private PregnancyDto? _pregnancy;
+    private readonly CreateDiaryEntryRequest _model = new();
+    private DateTime? _entryDate = DateTime.Today;
+    private string? _symptomsText;
+    private string? _photoReferencesText;
+    private IReadOnlyList<DiaryEntryDto> _entries = [];
+    private IReadOnlyList<DiaryEntryDto> _trendEntries => _entries.Where(item => item.WeightKg.HasValue || item.TemperatureCelsius.HasValue).ToList();
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _state = DiaryPageState.Ready;
+        _error = null;
+        var pets = await PetService.GetPetsAsync();
+        if (!pets.Succeeded) { SetLoadFailure(pets); return; }
+        _pet = pets.Data?.FirstOrDefault(item => item.IsActive);
+        if (_pet is null) { _isLoading = false; return; }
+        var pregnancy = await PregnancyService.GetCurrentAsync(_pet.Id);
+        if (!pregnancy.Succeeded)
+        {
+            if (pregnancy.IsNotFound) { _pregnancy = null; _isLoading = false; return; }
+            SetLoadFailure(pregnancy);
+            return;
+        }
+        if (pregnancy.Data is null) { _state = DiaryPageState.Error; _error = "Não foi possível carregar a gestação."; _isLoading = false; return; }
+        _pregnancy = pregnancy.Data;
+        var diary = await DiaryService.GetEntriesAsync(_pet.Id, pregnancy.Data.Id);
+        if (!diary.Succeeded) { SetLoadFailure(diary); return; }
+        _entries = diary.Data ?? [];
+        _isLoading = false;
+    }
+
+    private async Task CreateAsync()
+    {
+        _formError = null;
+        _validationErrors = null;
+        _isDuplicate = false;
+        if (_entryDate is null || _entryDate.Value.Date > DateTime.Today) { _formError = "Escolha uma data de hoje ou anterior."; return; }
+        var symptoms = SplitValues(_symptomsText);
+        var references = SplitValues(_photoReferencesText);
+        if (!_model.WeightKg.HasValue && !_model.TemperatureCelsius.HasValue && string.IsNullOrWhiteSpace(_model.Appetite) && string.IsNullOrWhiteSpace(_model.Behavior) && symptoms.Length == 0 && string.IsNullOrWhiteSpace(_model.Notes) && references.Length == 0)
+        { _formError = "Informe pelo menos uma observação além da data."; return; }
+        _model.EntryDate = _entryDate.Value.Date;
+        _model.Symptoms = symptoms;
+        _model.PhotoReferences = references;
+        _isSubmitting = true;
+        var result = await DiaryService.CreateAsync(_pet!.Id, _pregnancy!.Id, _model);
+        _isSubmitting = false;
+        if (result.Succeeded && result.Data is not null)
+        {
+            _entries = new[] { result.Data }.Concat(_entries).OrderByDescending(item => item.EntryDate).ToList();
+            _model.WeightKg = null; _model.TemperatureCelsius = null; _model.Appetite = null; _model.Behavior = null; _model.Notes = null;
+            _symptomsText = null; _photoReferencesText = null; _entryDate = DateTime.Today;
+            return;
+        }
+        _isDuplicate = result.IsConflict;
+        _formError = result.Error;
+        _validationErrors = result.ValidationErrors;
+    }
+
+    private void SetLoadFailure<T>(ApiCallResult<T> result)
+    {
+        _isLoading = false;
+        _state = result.IsUnauthorized ? DiaryPageState.Unauthorized : result.IsOffline ? DiaryPageState.Offline : DiaryPageState.Error;
+        _error = result.Error;
+    }
+
+    private static string[] SplitValues(string? value) => string.IsNullOrWhiteSpace(value) ? [] : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(item => item.Length > 0).ToArray();
+    private static string FormatValue(decimal? value, string unit) => value.HasValue ? $"{value.Value:0.##} {unit}" : "Não informado";
+    private static string AppetiteLabel(string? value) => value switch { "Decreased" => "Diminuído", "Increased" => "Aumentado", "Normal" => "Normal", _ => value ?? "Não informado" };
+}

@@ -1,0 +1,32 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@inject CustomAuthenticationStateProvider AuthenticationStateProvider
+
+<CascadingAuthenticationState>
+    @if (!_initialized)
+    {
+        <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando sua sessão...</span></div>
+    }
+    else
+    {
+        <Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+            <Found Context="routeData">
+                <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                    <NotAuthorized>
+                        <RedirectToLogin />
+                    </NotAuthorized>
+                </AuthorizeRouteView>
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            </Found>
+        </Router>
+    }
+</CascadingAuthenticationState>
+
+@code {
+    private bool _initialized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthenticationStateProvider.InitializeAsync();
+        _initialized = true;
+    }
+}

@@ -1,0 +1,106 @@
+@page "/pets/{PetId:guid}/pregnancy/new"
+@attribute [Authorize]
+@inject PetService PetService
+@inject PregnancyService PregnancyService
+@inject NavigationManager Navigation
+
+<PageTitle>Registrar gestação | VetGest</PageTitle>
+
+<section class="form-page pregnancy-page" aria-labelledby="pregnancy-title">
+    @if (_isLoadingPet)
+    {
+        <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando o pet selecionado...</span></div>
+    }
+    else if (_pet is null)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@Icons.Material.Filled.VisibilityOff" Size="Size.Large" /><div><strong>Pet indisponível</strong><span>@(_error ?? "Não foi possível carregar este pet.")</span><MudButton Href="pets" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack">Voltar para pets</MudButton></div></div>
+    }
+    else if (_created is not null)
+    {
+        <div class="form-heading"><span class="section-kicker">Registro salvo</span><h1 id="pregnancy-title">Gestação de @_pet.Name</h1><p>Estes valores foram calculados e retornados pelo servidor. As datas são estimativas.</p></div>
+        <section class="result-panel" aria-labelledby="result-title">
+            <div class="section-heading"><div><span class="section-kicker">Resumo da estimativa</span><h2 id="result-title">Previsão para @_created.Calculation.EstimatedDueDate.ToString("dd/MM/yyyy")</h2></div>@if (_created.Calculation.IsOverdue) { <MudChip T="string" Color="Color.Warning" Icon="@Icons.Material.Filled.Warning">Estimativa ultrapassada</MudChip> }</div>
+            <dl class="result-grid"><div><dt>Dia gestacional</dt><dd>@_created.Calculation.GestationalDay</dd></div><div><dt>Fase (@_created.Species)</dt><dd>@(_created.Calculation.Phase ?? "Não informada")</dd></div><div><dt>Base do cálculo</dt><dd>@BasisLabel(_created.Calculation.Basis)</dd></div><div><dt>Data de referência</dt><dd>@_created.Calculation.ReferenceDate.ToString("dd/MM/yyyy")</dd></div></dl>
+            <p class="estimate-note"><MudIcon Icon="@Icons.Material.Filled.Info" aria-hidden="true" /> @_created.Calculation.UncertaintyStatement</p>
+        </section>
+        <div class="result-actions"><MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Today">Ver Hoje</MudButton><MudButton Href="pets" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Pets">Meus pets</MudButton></div>
+    }
+    else
+    {
+        <div class="form-heading"><span class="section-kicker">Novo acompanhamento</span><h1 id="pregnancy-title">Registrar gestação</h1><p>Pet selecionado: <strong>@_pet.Name</strong> · @_pet.Species. O servidor calcula a previsão e a fase.</p></div>
+        <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+            <DataAnnotationsValidator />
+            @if (_error is not null) { <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)" ShowCloseIcon="true">@_error</MudAlert> }
+            @if (_validationErrors is not null) { <MudAlert Severity="Severity.Warning"><ValidationSummary />@foreach (var item in _validationErrors) { <div>@string.Join(" ", item.Value)</div> }</MudAlert> }
+            <MudDatePicker @bind-Date="_matingDate" Label="Data de cobertura (obrigatória)" Required="true" Editable="true" />
+            <MudDatePicker @bind-Date="_ovulationDate" Label="Data de ovulação/progesterona (opcional)" Editable="true" />
+            <p class="form-hint">Quando informada, a data de ovulação/progesterona será priorizada pelo cálculo do servidor em relação à data de cobertura.</p>
+            <MudDatePicker @bind-Date="_confirmedAt" Label="Data de confirmação (opcional)" Editable="true" />
+            <MudTextField @bind-Value="_model.Notes" For="@(() => _model.Notes)" Label="Observações (opcional)" Lines="4" MaxLength="1000" />
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSubmitting" FullWidth="true" StartIcon="@Icons.Material.Filled.Save">@(_isSubmitting ? "Calculando..." : "Registrar gestação")</MudButton>
+            <ValidationSummary />
+        </EditForm>
+    }
+</section>
+
+@code {
+    [Parameter] public Guid PetId { get; set; }
+
+    private PetDto? _pet;
+    private readonly CreatePregnancyRequest _model = new();
+    private DateTime? _matingDate;
+    private DateTime? _ovulationDate;
+    private DateTime? _confirmedAt;
+    private PregnancyDto? _created;
+    private bool _isLoadingPet = true;
+    private bool _isSubmitting;
+    private bool _offline;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await PetService.GetPetsAsync();
+        _isLoadingPet = false;
+        if (result.Succeeded)
+        {
+            _pet = result.Data?.FirstOrDefault(item => item.Id == PetId && item.IsActive);
+            if (_pet is null) _error = "O pet não existe, está inativo ou não pertence à sua conta.";
+            return;
+        }
+
+        _offline = result.IsOffline;
+        _error = result.Error;
+    }
+
+    private async Task SubmitAsync()
+    {
+        _error = null;
+        if (_matingDate is null)
+        {
+            _error = "Informe a data de cobertura para continuar.";
+            return;
+        }
+
+        if (_matingDate.Value.Date > DateTime.UtcNow.Date || (_ovulationDate?.Date > DateTime.UtcNow.Date) || (_confirmedAt?.Date > DateTime.UtcNow.Date))
+        {
+            _error = "As datas não podem estar no futuro.";
+            return;
+        }
+
+        _model.MatingDate = _matingDate;
+        _model.OvulationDate = _ovulationDate;
+        _model.ConfirmedAt = _confirmedAt;
+        _isSubmitting = true;
+        var result = await PregnancyService.CreateAsync(PetId, _model);
+        _isSubmitting = false;
+        if (result.Succeeded) { _created = result.Data; return; }
+        _offline = result.IsOffline;
+        _error = result.Error;
+        _validationErrors = result.ValidationErrors;
+    }
+
+    private static string BasisLabel(PregnancyCalculationBasis basis) => basis == PregnancyCalculationBasis.OvulationDate
+        ? "Ovulação/progesterona" : "Data de cobertura";
+
+    private IReadOnlyDictionary<string, string[]>? _validationErrors;
+}

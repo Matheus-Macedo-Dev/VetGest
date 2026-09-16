@@ -1,0 +1,55 @@
+﻿@inherits LayoutComponentBase
+<MudThemeProvider Theme="@Theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="app-shell">
+    <aside class="app-sidebar">
+        <NavMenu />
+    </aside>
+
+    <main class="app-main">
+        <header class="app-header">
+            <div>
+                <p class="eyebrow">VETGEST · ESPAÇO DE CUIDADO</p>
+                <AuthorizeView>
+                    <Authorized><span class="header-status"><span class="status-dot" aria-hidden="true"></span>Conta protegida</span></Authorized>
+                    <NotAuthorized><span class="header-status"><span class="status-dot" aria-hidden="true"></span>Modo demonstração</span></NotAuthorized>
+                </AuthorizeView>
+            </div>
+            <MudIconButton Icon="@Icons.Material.Filled.NotificationsNone" Color="Color.Inherit" aria-label="Notificações" />
+        </header>
+
+        <article class="app-content">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private static readonly MudTheme Theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#1d6b68",
+            Secondary = "#d78a42",
+            Tertiary = "#d9b44a",
+            Background = "#f5f7f3",
+            Surface = "#ffffff",
+            AppbarBackground = "#f5f7f3",
+            AppbarText = "#193633",
+            TextPrimary = "#193633",
+            TextSecondary = "#5c706c",
+            Divider = "#dce6e1",
+            Error = "#b5443d"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography { FontFamily = new[] { "Lato", "Arial", "sans-serif" } },
+            H1 = new H1Typography { FontFamily = new[] { "Fraunces", "Georgia", "serif" } },
+            H2 = new H2Typography { FontFamily = new[] { "Fraunces", "Georgia", "serif" } },
+            H3 = new H3Typography { FontFamily = new[] { "Fraunces", "Georgia", "serif" } }
+        }
+    };
+}

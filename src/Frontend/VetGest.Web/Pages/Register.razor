@@ -1,0 +1,61 @@
+@page "/register"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Criar conta | VetGest</PageTitle>
+
+<section class="form-page" aria-labelledby="register-title">
+    <div class="form-heading"><span class="section-kicker">Conta de tutor</span><h1 id="register-title">Comece pelo cuidado</h1><p>Crie uma conta para registrar seus pets. Contas de veterinário são provisionadas separadamente.</p></div>
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+        <DataAnnotationsValidator />
+        @if (_error is not null) { <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)">@_error</MudAlert> }
+        @if (_validationErrors is not null)
+        {
+            <MudAlert Severity="Severity.Warning">
+                <strong>Revise os dados informados:</strong>
+                <ul class="validation-summary-list">
+                    @foreach (var message in _validationErrors.SelectMany(item => item.Value).Distinct())
+                    {
+                        <li>@message</li>
+                    }
+                </ul>
+            </MudAlert>
+        }
+        <MudTextField @bind-Value="_model.FullName" For="@(() => _model.FullName)" Label="Nome completo" Required="true" autocomplete="name" />
+        <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="E-mail" InputType="InputType.Email" Required="true" autocomplete="email" />
+        <MudTextField @bind-Value="_model.Password" For="@(() => _model.Password)" Label="Senha" InputType="InputType.Password" Required="true" autocomplete="new-password" HelperText="Use pelo menos 8 caracteres." />
+        <MudTextField @bind-Value="_model.ConfirmPassword" For="@(() => _model.ConfirmPassword)" Label="Confirme a senha" InputType="InputType.Password" Required="true" autocomplete="new-password" />
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isLoading" FullWidth="true" StartIcon="@Icons.Material.Filled.PersonAdd">
+            @(_isLoading ? "Criando conta..." : "Criar conta de tutor")
+        </MudButton>
+        <ValidationSummary />
+    </EditForm>
+    <p class="form-footer">Já tem uma conta? <a href="login">Entre aqui</a></p>
+</section>
+
+@code {
+    private readonly RegisterRequest _model = new() { Role = "Tutor" };
+    private bool _isLoading;
+    private bool _offline;
+    private string? _error;
+
+    private async Task SubmitAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        _validationErrors = null;
+        var result = await AuthService.RegisterAsync(_model);
+        _isLoading = false;
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("pets");
+            return;
+        }
+
+        _offline = result.IsOffline;
+        _error = result.Error;
+        _validationErrors = result.ValidationErrors;
+    }
+
+    private IReadOnlyDictionary<string, string[]>? _validationErrors;
+}

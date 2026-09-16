@@ -1,0 +1,43 @@
+@page "/login"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Entrar | VetGest</PageTitle>
+
+<section class="form-page" aria-labelledby="login-title">
+    <div class="form-heading"><span class="section-kicker">Acesso seguro</span><h1 id="login-title">Bem-vindo de volta</h1><p>Entre para acessar seus pets e seus registros privados.</p></div>
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+        <DataAnnotationsValidator />
+        @if (_error is not null) { <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)">@_error</MudAlert> }
+        <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="E-mail" InputType="InputType.Email" Required="true" autocomplete="email" />
+        <MudTextField @bind-Value="_model.Password" For="@(() => _model.Password)" Label="Senha" InputType="InputType.Password" Required="true" autocomplete="current-password" />
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isLoading" FullWidth="true" StartIcon="@Icons.Material.Filled.Login">
+            @(_isLoading ? "Entrando..." : "Entrar")
+        </MudButton>
+        <ValidationSummary />
+    </EditForm>
+    <p class="form-footer">Ainda não tem conta? <a href="register">Crie uma conta de tutor</a></p>
+</section>
+
+@code {
+    private readonly LoginRequest _model = new();
+    private bool _isLoading;
+    private bool _offline;
+    private string? _error;
+
+    private async Task SubmitAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        var result = await AuthService.LoginAsync(_model);
+        _isLoading = false;
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo("pets");
+            return;
+        }
+
+        _offline = result.IsOffline;
+        _error = result.Error;
+    }
+}

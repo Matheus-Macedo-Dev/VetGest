@@ -1,0 +1,46 @@
+@page "/pets"
+@attribute [Authorize]
+@inject PetService PetService
+
+<PageTitle>Meus pets | VetGest</PageTitle>
+
+<section class="pets-page" aria-labelledby="pets-title">
+    <div class="page-heading"><div><span class="section-kicker">Minha conta</span><h1 id="pets-title">Meus pets</h1><p>Seus registros ficam disponíveis apenas para sua conta.</p></div><MudButton Href="pets/new" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Cadastrar pet</MudButton></div>
+    @if (_isLoading)
+    {
+        <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando seus pets...</span></div>
+    }
+    else if (_error is not null)
+    {
+        <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)">@_error</MudAlert>
+    }
+    else if (_pets.Count == 0)
+    {
+        <section class="state-panel" aria-live="polite"><MudIcon Icon="@Icons.Material.Filled.Pets" Size="Size.Large" /><div><strong>Nenhum pet cadastrado</strong><span>Cadastre um pet para começar seu acompanhamento.</span><MudButton Href="pets/new" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Cadastrar primeiro pet</MudButton></div></section>
+    }
+    else
+    {
+        <div class="pet-list" role="list">
+            @foreach (var pet in _pets)
+            {
+                <article class="pet-card" role="listitem"><div class="pet-avatar" aria-hidden="true"><MudIcon Icon="@Icons.Material.Filled.Pets" Size="Size.Large" /></div><div><h2>@pet.Name</h2><p>@pet.Species@(string.IsNullOrWhiteSpace(pet.Breed) ? string.Empty : $" · {pet.Breed}")</p></div><span class="pet-status">@(pet.IsActive ? "Ativo" : "Inativo")</span>@if (pet.IsActive) { <MudIconButton Icon="@Icons.Material.Filled.PregnantWoman" Color="Color.Primary" Href=@($"pets/{pet.Id}/pregnancy/new") aria-label=@($"Registrar gestação para {pet.Name}") title="Registrar gestação" /> }</article>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private IReadOnlyList<PetDto> _pets = [];
+    private bool _isLoading = true;
+    private bool _offline;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await PetService.GetPetsAsync();
+        _isLoading = false;
+        if (result.Succeeded && result.Data is not null) { _pets = result.Data; return; }
+        _offline = result.IsOffline;
+        _error = result.Error;
+    }
+}

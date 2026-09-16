@@ -1,0 +1,69 @@
+﻿<div class="nav-brand">
+    <a href="" aria-label="VetGest, página inicial">
+        <span class="brand-mark" aria-hidden="true">V</span>
+        <span><strong>Vet</strong>Gest</span>
+    </a>
+    <button class="nav-toggle" title="Abrir menu de navegação" @onclick="ToggleNavMenu" aria-expanded="@(!collapseNavMenu)">
+        <MudIcon Icon="@Icons.Material.Filled.Menu" aria-hidden="true" />
+    </button>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable">
+    <nav aria-label="Navegação principal">
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="CloseNavMenu">
+            <MudIcon Icon="@Icons.Material.Filled.Today" aria-hidden="true" /> Hoje
+        </NavLink>
+        <NavLink class="nav-link" href="diary" @onclick="CloseNavMenu">
+            <MudIcon Icon="@Icons.Material.Filled.MenuBook" aria-hidden="true" /> Diário
+        </NavLink>
+        <NavLink class="nav-link" href="exams" @onclick="CloseNavMenu">
+            <MudIcon Icon="@Icons.Material.Filled.EventNote" aria-hidden="true" /> Exames e lembretes
+        </NavLink>
+        <NavLink class="nav-link" href="vet-connection" @onclick="CloseNavMenu">
+            <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" /> Conexão veterinária
+        </NavLink>
+        <AuthorizeView>
+            <Authorized>
+                <NavLink class="nav-link" href="pets" @onclick="CloseNavMenu">
+                    <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" /> Meus pets
+                </NavLink>
+                <button class="nav-link nav-button" type="button" @onclick="LogoutAsync">
+                    <MudIcon Icon="@Icons.Material.Filled.Logout" aria-hidden="true" /> Sair
+                </button>
+            </Authorized>
+            <NotAuthorized>
+                <NavLink class="nav-link" href="login" @onclick="CloseNavMenu">
+                    <MudIcon Icon="@Icons.Material.Filled.Login" aria-hidden="true" /> Entrar
+                </NavLink>
+                <NavLink class="nav-link" href="register" @onclick="CloseNavMenu">
+                    <MudIcon Icon="@Icons.Material.Filled.PersonAdd" aria-hidden="true" /> Criar conta
+                </NavLink>
+            </NotAuthorized>
+        </AuthorizeView>
+    </nav>
+</div>
+
+@code {
+    [Inject] private AuthService AuthService { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    private void CloseNavMenu()
+    {
+        collapseNavMenu = true;
+    }
+
+    private async Task LogoutAsync()
+    {
+        await AuthService.LogoutAsync();
+        CloseNavMenu();
+        Navigation.NavigateTo("login");
+    }
+}

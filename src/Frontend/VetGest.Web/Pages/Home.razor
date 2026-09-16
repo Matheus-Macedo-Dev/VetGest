@@ -1,0 +1,72 @@
+﻿@page "/"
+@inject ITodayService TodayService
+@inject LiveTodayService LiveTodayService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Minha Gestação Hoje | VetGest</PageTitle>
+
+<div class="today-page">
+	@if (_state.IsLoading)
+	{
+		<section class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" /><div><strong>Preparando o resumo de hoje</strong><span>Um instante enquanto organizamos seus dados.</span></div></section>
+	}
+	else if (_state.ErrorMessage is not null)
+	{
+		<section class="state-panel state-error" role="alert"><MudIcon Icon="@(_state.IsUnauthorized ? Icons.Material.Filled.Lock : Icons.Material.Filled.CloudOff)" Size="Size.Large" /><div><strong>@(_state.IsUnauthorized ? "Acesso não autorizado" : "Não foi possível carregar o resumo")</strong><span>@_state.ErrorMessage</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" @onclick="LoadTodayAsync">Tentar novamente</MudButton></div></section>
+	}
+	else if (_state.Data is null)
+	{
+			<section class="state-panel" aria-live="polite"><MudIcon Icon="@Icons.Material.Filled.Pets" Size="Size.Large" /><div><strong>@(_isAuthenticated ? "Nenhuma gestação registrada" : "Nenhuma gestação cadastrada")</strong><span>@(_isAuthenticated ? "Acesse Meus pets para escolher um pet e registrar uma gestação. Dados de demonstração não são usados em contas autenticadas." : "Este é um espaço de demonstração. Entre ou crie uma conta para cuidar dos seus próprios dados.")</span>@if (_isAuthenticated) { <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="pets" StartIcon="@Icons.Material.Filled.Pets">Acessar meus pets</MudButton> } else { <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="login">Entrar</MudButton> }</div></section>
+	}
+	else
+	{
+		var today = _state.Data;
+		@if (_state.IsDemo) { <div class="demo-banner" role="status"><MudIcon Icon="@Icons.Material.Filled.WifiOff" aria-hidden="true" /><span><strong>Dados de demonstração</strong> · Exibição local, sem conta ou dados privados.</span></div> }
+		<header class="today-intro"><div><span class="section-kicker">Resumo de acompanhamento</span><h1>Minha Gestação Hoje</h1><p>Um olhar tranquilo para acompanhar cada mudança, um dia de cada vez.</p></div><div class="sample-tag"><MudIcon Icon="@Icons.Material.Filled.Science" aria-hidden="true" /> Amostra</div></header>
+		<section class="pet-overview" aria-labelledby="pet-heading"><div class="pet-avatar" aria-hidden="true"><MudIcon Icon="@Icons.Material.Filled.Pets" Size="Size.Large" /></div><div class="pet-identity"><h2 id="pet-heading">@today.PetName</h2><p>@today.Species · @today.Breed</p></div><div class="weight-stat"><span>Peso atual</span><strong>@today.WeightKg.ToString("0.0") kg</strong></div></section>
+		<section class="progress-section" aria-labelledby="progress-heading"><div class="section-heading"><div><span class="section-kicker">Acompanhamento</span><h2 id="progress-heading">Dia @today.GestationalDay <span>de @today.EstimatedGestationDays</span></h2></div><strong class="days-left">@(today.IsOverdue ? "Ultrapassada" : $"{today.DaysRemaining} dias")<br /><small>@(today.IsOverdue ? "estimativa" : "estimados restantes")</small></strong></div><div class="progress-track" role="progressbar" aria-valuenow="@today.GestationalDay" aria-valuemin="0" aria-valuemax="@today.EstimatedGestationDays" aria-label="Progresso estimado da gestação"><span style="width: @today.ProgressPercent%"></span></div><p class="estimate-note"><MudIcon Icon="@Icons.Material.Filled.Info" aria-hidden="true" /> Previsão para <strong>@today.EstimatedDueDate.ToString("dd/MM/yyyy")</strong>, baseada em <strong>@today.CalculationBasis.ToLowerInvariant()</strong>. @today.UncertaintyStatement</p></section>
+		<section class="phase-highlight" aria-labelledby="phase-heading"><div class="phase-icon" aria-hidden="true"><MudIcon Icon="@Icons.Material.Filled.Spa" Size="Size.Large" /></div><div class="phase-content"><div class="phase-heading-row"><span class="section-kicker">Fase atual</span>@if (today.CareContent is { IsAvailable: true } care) { <span class="review-badge">@GetContentStatus(care)</span> } else { <span class="review-badge review-badge-muted">Conteúdo indisponível</span> }</div><h2 id="phase-heading">@today.CurrentPhase</h2><p>@today.PhaseSummary</p></div></section>
+		<div class="today-grid"><section class="info-section" aria-labelledby="development-heading"><div class="section-heading"><h2 id="development-heading">Desenvolvimento fetal</h2><MudIcon Icon="@Icons.Material.Filled.Autorenew" aria-hidden="true" /></div><p>@today.FetalDevelopment</p></section><section class="info-section" aria-labelledby="maternal-heading"><div class="section-heading"><h2 id="maternal-heading">Mudanças maternas</h2><MudIcon Icon="@Icons.Material.Filled.FavoriteBorder" aria-hidden="true" /></div><p>@today.MaternalChanges</p></section></div>
+		<section class="guidance-section" aria-labelledby="guidance-heading"><div class="section-heading"><div><span class="section-kicker">Para esta fase</span><h2 id="guidance-heading">Cuidados para observar</h2></div><MudIcon Icon="@Icons.Material.Filled.EmojiObjects" aria-hidden="true" /></div>@if (today.CareContent is not { IsAvailable: true } careContent) { <p class="content-unavailable">O conteúdo educativo desta fase não está publicado ou ainda não foi disponibilizado.</p> } else { <ul>@foreach (var item in careContent.GuidanceItems) { <li><MudIcon Icon="@Icons.Material.Filled.Check" aria-hidden="true" /><span><strong>@item.Title</strong><br />@item.Guidance</span></li>}</ul><div class="care-content-meta"><span><strong>Status:</strong> @PublicationStatusLabel(careContent.PublicationStatus) · @ReviewStatusLabel(careContent.ReviewStatus)</span>@if (careContent.Source is not null) { <span><strong>Fonte:</strong> @careContent.Source</span> }@if (careContent.Reviewer is not null) { <span><strong>Revisão:</strong> @careContent.Reviewer@if (careContent.ReviewDate is { } reviewDate) { <text> · @reviewDate.ToString("dd/MM/yyyy")</text> }</span> }<p>@careContent.UncertaintyStatement</p><p>@careContent.Disclaimer</p></div>}</section>
+		<div class="action-grid"><section class="reminder-panel" aria-labelledby="reminder-heading"><MudIcon Icon="@Icons.Material.Filled.EventAvailable" aria-hidden="true" /><div><span class="section-kicker">Próximo cuidado</span><h2 id="reminder-heading">@today.NextReminder</h2><p>Organize suas próximas conversas com a equipe veterinária.</p></div><MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Primary" aria-label="Ver exames e lembretes" /></section><section class="diary-panel" aria-labelledby="diary-heading"><div><span class="section-kicker">Registro diário</span><h2 id="diary-heading">Como foi o dia?</h2><p>Registre observações para conversar com o veterinário.</p></div><MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.EditNote" Href="diary">Abrir diário</MudButton></section></div>
+		<section class="@($"alert-panel alert-panel--{today.AlertSeverity.ToLowerInvariant()}")" aria-labelledby="alert-heading"><div class="alert-icon" aria-hidden="true"><MudIcon Icon="@(today.TriggeredAlerts.Count == 0 ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Visibility)" /></div><div><span class="section-kicker">@(today.TriggeredAlerts.Count == 0 ? "Sem alertas" : "Atenção importante")</span><h2 id="alert-heading">@(today.TriggeredAlerts.Count == 0 ? "Nenhum sinal de alerta no momento" : $"{today.TriggeredAlerts.Count} alerta(s) identificado(s)")</h2>@if (today.TriggeredAlerts.Count == 0) { <p>Nenhum sinal de alerta no momento. Continue monitorando normalmente.</p> } else { <ul class="alert-list">@foreach (var alert in today.TriggeredAlerts) { <li><strong>@alert.Name</strong><span>@alert.Description</span></li> }</ul> }<p class="alert-disclaimer">@today.AlertDisclaimer</p></div></section>
+	}
+</div>
+
+@code {
+	private TodayState _state = TodayState.Loading();
+	private bool _isAuthenticated;
+
+	protected override async Task OnInitializedAsync()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		_isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+		await LoadTodayAsync();
+	}
+
+	private async Task LoadTodayAsync()
+	{
+		_state = TodayState.Loading();
+		_state = _isAuthenticated ? await LiveTodayService.GetTodayAsync() : await TodayService.GetTodayAsync();
+	}
+
+	private static string GetContentStatus(TodayCareContent content) =>
+		content.ReviewStatus.Equals("Reviewed", StringComparison.OrdinalIgnoreCase)
+			? "Revisado"
+			: "Conteúdo de referência";
+
+	private static string PublicationStatusLabel(string status) => status switch
+	{
+		"Published" => "Publicado",
+		"Reference" => "Referência",
+		"Unpublished" => "Não publicado",
+		_ => "Status não informado"
+	};
+
+	private static string ReviewStatusLabel(string status) => status switch
+	{
+		"Reviewed" => "Revisado",
+		"Unreviewed" => "Ainda não revisado",
+		_ => "Revisão não informada"
+	};
+}
