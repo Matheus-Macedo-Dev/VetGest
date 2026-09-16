@@ -12,6 +12,7 @@
 
 # Test output
 TestResults/
+coverage/
 *.trx
 
 # Local configuration and secrets
