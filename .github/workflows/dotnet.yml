@@ -80,6 +80,7 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: quality
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - name: Checkout
