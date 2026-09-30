@@ -66,8 +66,12 @@ Configure these GitHub production environment values before enabling deployment:
 
 - Variable `VETGEST_API_APP_NAME`: Azure App Service name for the API.
 - Variable `VETGEST_API_BASE_URL`: public HTTPS URL of the API, including the trailing slash.
-- Secret `VETGEST_API_PUBLISH_PROFILE`: App Service publish profile XML.
+- Secret `AZURE_CLIENT_ID`: client ID of the Microsoft Entra application used by GitHub Actions.
+- Secret `AZURE_TENANT_ID`: Microsoft Entra tenant ID.
+- Secret `AZURE_SUBSCRIPTION_ID`: Azure subscription ID.
 - Secret `VETGEST_STATIC_WEB_APPS_TOKEN`: deployment token for the Static Web App.
+
+The Entra application must have a federated credential for this GitHub repository and the `main` branch, plus permission to deploy the `vetgest-api` App Service. The API job uses OIDC through `azure/login`; it does not use an App Service publish profile.
 
 Configure these API App Settings in Azure App Service, without committing them:
 
