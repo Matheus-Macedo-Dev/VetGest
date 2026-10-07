@@ -18,6 +18,7 @@ coverage/
 # Local configuration and secrets
 appsettings.Development.json
 appsettings.Local.json
+src/Backend/VetGest.API/appsettings.json
 .env
 .env.*
 

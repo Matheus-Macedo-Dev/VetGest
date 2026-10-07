@@ -12,6 +12,7 @@ using VetGest.Application.Alerts;
 using VetGest.Application.Pets;
 using VetGest.Application.Pregnancies;
 using VetGest.Application.Content;
+using VetGest.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +45,7 @@ builder.Services
 builder.Services.AddVetGestAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<IVetConnectionRealtimePublisher, VetConnectionRealtimePublisher>();
 builder.Services.AddScoped<RegistrationValidator>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IPetService, PetService>();
@@ -54,6 +56,16 @@ builder.Services.AddScoped<IPregnancyCareService, PregnancyCareService>();
 builder.Services.AddScoped<IExaminationReminderService, ExaminationReminderService>();
 builder.Services.AddScoped<IPregnancyDiaryService, PregnancyDiaryService>();
 builder.Services.AddScoped<IAlertEvaluationService, AlertEvaluationService>();
+var invitationTtlDays = configuration.GetValue<int?>("VetConnections:InvitationTtlDays") ?? 7;
+var maxInvitationTtlDays = configuration.GetValue<int?>("VetConnections:MaxInvitationTtlDays") ?? 14;
+builder.Services.AddSingleton(new VetConnectionServiceOptions
+{
+    InvitationTtl = TimeSpan.FromDays(invitationTtlDays),
+    MaxInvitationTtl = TimeSpan.FromDays(maxInvitationTtlDays)
+});
+builder.Services.AddScoped<IVetConnectionService>(serviceProvider => new VetConnectionService(
+    serviceProvider.GetRequiredService<IVetConnectionRepository>(),
+    serviceProvider.GetRequiredService<VetConnectionServiceOptions>()));
 
 // Register Token Service
 var jwtSettings = configuration.GetSection("Jwt");
@@ -150,8 +162,9 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     if (app.Environment.IsDevelopment())
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<VetGestDbContext>();
@@ -184,6 +197,8 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 
 // Map SignalR hubs (placeholder)
-// app.MapHub<VetConnectionHub>("/hubs/vet-connection");
+app.MapHub<VetConnectionsHub>("/hubs/vet-connections");
 
 app.Run();
+
+public partial class Program;

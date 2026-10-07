@@ -84,12 +84,17 @@ The free or consumption tiers may sleep, have quotas, and are not equivalent to 
 
 ## Authenticated pet registration backend
 
-The backend now exposes the first authenticated vertical slice:
+The backend now exposes authenticated vertical slices for account, pet, pregnancy, diary, alerts, and Vet-Tutor connection:
 
 - `POST /api/auth/register` creates an active Tutor account and returns `ApiResponse<AuthResponse>` with a JWT. Any requested Vet role is ignored; Vet accounts must be provisioned separately.
 - `POST /api/auth/login` validates the account and password and returns the same envelope. Identity failures use generic messages.
 - `POST /api/pets` creates a Dog or Cat for the authenticated Tutor and returns `ApiResponse<PetDto>`.
 - `GET /api/pets` lists only the authenticated user's pets in `ApiResponse<IReadOnlyList<PetDto>>`.
 - `GET /api/pets/{id}` returns the authenticated user's pet or `404`; an unrelated ID also returns `404` to avoid resource enumeration.
+- `POST /api/vet-connections/invitations` requires role `Vet` and creates an invitation for a tutor-owned pregnancy.
+- `POST /api/vet-connections/accept` requires role `Tutor` and accepts a valid invitation targeted to the authenticated tutor.
+- `POST /api/vet-connections/{connectionId}/revoke` allows only linked participants (Tutor or Vet) to revoke a connection.
+- `GET /api/vet-connections` lists connections visible to the authenticated user.
+- `GET/POST /hubs/vet-connections` provides authenticated SignalR collaboration with per-pregnancy join authorization.
 
-Pet use cases live in `VetGest.Application`; EF persistence sets and filters the `OwnerId` shadow property in Infrastructure. The existing EF baseline `20260904191139_InitialCreate` remains unchanged. The repository currently has unit coverage for pet validation and ownership, but no API integration-test host, SQL test container, or Identity test fixture; endpoint-level registration/login and anonymous HTTP assertions remain an integration coverage gap.
+Use cases live in `VetGest.Application`; EF persistence sets and filters the `OwnerId` shadow property in Infrastructure. The existing EF baseline `20260904191139_InitialCreate` remains unchanged. The repository now includes an API integration-test host focused on authorization and linked-record isolation for vet-connection endpoints and hub access, while broader auth-flow coverage (for example registration/login identity edge cases and full SQL-container integration) remains a follow-up gap.

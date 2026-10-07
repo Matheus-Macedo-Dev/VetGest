@@ -47,6 +47,16 @@ h1, h2, h3, p { margin-top: 0; } h1, h2, h3 { font-family: 'Fraunces', Georgia, 
 .diary-timeline { display: grid; gap: .75rem; } .diary-entry { display: grid; grid-template-columns: 68px 1fr; gap: .9rem; padding: .85rem 0; border-top: 1px solid var(--vg-line); } .diary-entry-date { display: grid; align-content: start; justify-items: center; padding: .45rem; background: #edf7f1; color: var(--vg-teal); } .diary-entry-date strong { font-size: 1.35rem; } .diary-entry-date span { font-size: .75rem; text-transform: uppercase; } .diary-entry-date small { color: var(--vg-muted); }
 .diary-entry-body { min-width: 0; } .entry-meta { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: .45rem; color: var(--vg-teal); font-size: .78rem; font-weight: 800; } .entry-meta span { padding-right: .45rem; border-right: 1px solid var(--vg-line); } .entry-meta span:last-child { border-right: 0; } .diary-entry-body p { margin: .35rem 0 0; color: var(--vg-muted); font-size: .86rem; line-height: 1.5; } .reference-note { display: flex; align-items: center; gap: .35rem; }
 .exams-page { display: grid; gap: 1.25rem; max-width: 900px; margin: 0 auto; }
+.vet-connection-page { display: grid; gap: 1.25rem; max-width: 980px; margin: 0 auto; }
+.connection-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.connection-form { display: grid; gap: .75rem; padding: 1.1rem; border: 1px solid var(--vg-line); background: var(--vg-surface); }
+.connection-form h2 { margin: 0; font-size: 1.25rem; }
+.connection-form p { margin: 0 0 .25rem; color: var(--vg-muted); font-size: .83rem; line-height: 1.45; }
+.connection-list { display: grid; gap: .85rem; padding: 1.1rem; border: 1px solid var(--vg-line); background: var(--vg-surface); }
+.connection-items { display: grid; gap: .7rem; }
+.connection-item { display: flex; justify-content: space-between; align-items: flex-start; gap: .9rem; padding: .9rem; border: 1px solid var(--vg-line); background: #fff; }
+.connection-item h3 { margin: .35rem 0; font-size: 1.1rem; }
+.connection-item p { margin: .25rem 0 0; color: var(--vg-muted); font-size: .84rem; line-height: 1.45; }
 .exams-notice { display: flex; align-items: flex-start; gap: .65rem; padding: .9rem 1rem; border: 1px solid #d8cda8; background: #fffdf3; color: #6f602f; font-size: .82rem; line-height: 1.5; }
 .exams-notice .mud-icon-root { flex: 0 0 auto; color: var(--vg-gold); }
 .exams-list { display: grid; gap: .8rem; }
@@ -88,6 +98,7 @@ h1, h2, h3, p { margin-top: 0; } h1, h2, h3 { font-family: 'Fraunces', Georgia, 
 @media (max-width: 480px) { .result-grid { grid-template-columns: 1fr; } .result-actions .mud-button-root { width: 100%; } }
 @media (max-width: 560px) { .diary-form-grid { grid-template-columns: 1fr; } .diary-entry { grid-template-columns: 54px 1fr; gap: .65rem; } .diary-entry-date strong { font-size: 1.1rem; } }
 @media (max-width: 480px) { .exam-item { grid-template-columns: 1fr; } .exam-date { justify-items: start; display: flex; align-items: baseline; gap: .45rem; text-align: left; } }
+@media (max-width: 760px) { .connection-grid { grid-template-columns: 1fr; } .connection-item { display: grid; } .connection-item .mud-button-root { width: 100%; } }
 @media (max-width: 420px) { .pet-overview { flex-wrap: wrap; } .weight-stat { width: 100%; padding: .75rem 0 0; border-top: 1px solid var(--vg-line); border-left: 0; text-align: left; } }
 #blazor-error-ui { display: none; position: fixed; right: 1rem; bottom: 1rem; left: 1rem; z-index: 1000; padding: .8rem 1rem; border-left: 4px solid var(--vg-alert); background: #fff4f2; box-shadow: 0 4px 18px rgba(25,54,51,.15); } #blazor-error-ui .dismiss { float: right; cursor: pointer; }
 .loading-progress { position: absolute; inset: 20vh 0 auto; display: block; width: 5rem; height: 5rem; margin: auto; } .loading-progress circle { fill: none; stroke: #dce6e1; stroke-width: .6rem; transform: rotate(-90deg); transform-origin: 50% 50%; } .loading-progress circle:last-child { stroke: var(--vg-teal); stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * .8), 500%; } .loading-progress-text { position: absolute; inset: calc(20vh + 3.2rem) 0 auto; text-align: center; }html, body {

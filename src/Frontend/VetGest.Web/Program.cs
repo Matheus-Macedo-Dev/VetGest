@@ -5,6 +5,7 @@ using MudBlazor.Services;
 using VetGest.Web.Services.Today;
 using VetGest.Web.Services.Api;
 using VetGest.Web.Services.Auth;
+using VetGest.Web.Services.Realtime;
 using VetGest.Web;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -36,6 +37,8 @@ builder.Services.AddScoped<CareContentService>();
 builder.Services.AddScoped<AlertService>();
 builder.Services.AddScoped<ExaminationService>();
 builder.Services.AddScoped<DiaryService>();
+builder.Services.AddScoped<VetConnectionService>();
+builder.Services.AddScoped<VetConnectionRealtimeService>();
 builder.Services.AddScoped<LiveTodayService>();
 builder.Services.AddScoped<ITodayService, LiveTodayService>();
 

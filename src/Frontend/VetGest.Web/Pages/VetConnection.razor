@@ -1,0 +1,333 @@
+@page "/vet-connection"
+@attribute [Authorize]
+@implements IAsyncDisposable
+@using System.Security.Claims
+@inject VetConnectionService VetConnectionService
+@inject VetConnectionRealtimeService RealtimeService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Conexao veterinaria | VetGest</PageTitle>
+
+<section class="vet-connection-page" aria-labelledby="vet-connection-title">
+    @if (_isLoading)
+    {
+        <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando conexoes...</span></div>
+    }
+    else if (_state == PageState.Unauthorized)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" /><div><strong>Sessao nao autorizada</strong><span>Entre novamente para acessar as conexoes.</span><MudButton Href="login" Variant="Variant.Outlined" Color="Color.Primary">Entrar</MudButton></div></div>
+    }
+    else if (_state == PageState.Offline)
+    {
+        <div class="state-panel" role="alert"><MudIcon Icon="@Icons.Material.Filled.CloudOff" Size="Size.Large" /><div><strong>Conexoes indisponiveis offline</strong><span>Conecte-se para sincronizar convites e atualizacoes.</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" @onclick="LoadAsync">Tentar novamente</MudButton></div></div>
+    }
+    else if (_state == PageState.Error)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" /><div><strong>Nao foi possivel carregar</strong><span>@_error</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" @onclick="LoadAsync">Tentar novamente</MudButton></div></div>
+    }
+    else
+    {
+        <div class="page-heading"><div><span class="section-kicker">Colaboracao segura</span><h1 id="vet-connection-title">Conexao veterinaria</h1><p>Crie, aceite e gerencie conexoes entre tutor e veterinario com acesso autorizado por gestacao.</p></div></div>
+
+        @if (_realtimeWarning is not null)
+        {
+            <MudAlert Severity="Severity.Warning">@_realtimeWarning</MudAlert>
+        }
+
+        <div class="connection-grid">
+            @if (_isVet)
+            {
+                <EditForm Model="_createForm" OnValidSubmit="CreateInvitationAsync" class="connection-form">
+                    <DataAnnotationsValidator />
+                    <h2>Criar convite</h2>
+                    <p>Informe os identificadores para gerar um codigo de convite.</p>
+                    <MudTextField @bind-Value="_petIdText" Label="PetId" Placeholder="00000000-0000-0000-0000-000000000000" Required="true" />
+                    <MudTextField @bind-Value="_pregnancyIdText" Label="PregnancyId" Placeholder="00000000-0000-0000-0000-000000000000" Required="true" />
+                    <MudTextField @bind-Value="_createForm.TutorUserId" Label="TutorUserId" Required="true" />
+                    @if (_createError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error">@_createError</MudAlert>
+                    }
+                    <MudButton ButtonType="ButtonType.Submit" Disabled="@_isCreating" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Key">@(_isCreating ? "Gerando..." : "Gerar convite")</MudButton>
+                </EditForm>
+            }
+
+            @if (_isTutor)
+            {
+                <EditForm Model="_acceptForm" OnValidSubmit="AcceptInvitationAsync" class="connection-form">
+                    <DataAnnotationsValidator />
+                    <h2>Aceitar convite</h2>
+                    <p>Digite o codigo recebido do veterinario para ativar a conexao.</p>
+                    <MudTextField @bind-Value="_acceptForm.InvitationCode" Label="Codigo do convite" Placeholder="ABC123456789" Required="true" />
+                    @if (_acceptError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error">@_acceptError</MudAlert>
+                    }
+                    <MudButton ButtonType="ButtonType.Submit" Disabled="@_isAccepting" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Link">@(_isAccepting ? "Validando..." : "Aceitar convite")</MudButton>
+                </EditForm>
+            }
+        </div>
+
+        <section class="connection-list" aria-labelledby="connection-list-title">
+            <div class="section-heading"><div><span class="section-kicker">Status atual</span><h2 id="connection-list-title">Conexoes cadastradas</h2></div><span class="entry-count">@_connections.Count conexao(oes)</span></div>
+            @if (_connections.Count == 0)
+            {
+                <p class="empty-note">Nenhuma conexao registrada para este usuario.</p>
+            }
+            else
+            {
+                <div class="connection-items" role="list">
+                    @foreach (var connection in _connections)
+                    {
+                        <article class="connection-item" role="listitem">
+                            <div>
+                                <div class="exam-meta"><span class="exam-status @StatusClass(connection.Status)">@StatusLabel(connection.Status)</span><span>Expira em: @connection.InvitationExpiresAt.ToString("dd/MM/yyyy HH:mm") UTC</span></div>
+                                <h3>@ConnectionLabel(connection)</h3>
+                                <p>Gestacao: @connection.PregnancyId</p>
+                                @if (!string.IsNullOrWhiteSpace(connection.InvitationCode) && connection.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <p><strong>Codigo:</strong> @connection.InvitationCode</p>
+                                }
+                            </div>
+                            @if (!connection.Status.Equals("Revoked", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@_revokingIds.Contains(connection.Id)" StartIcon="@Icons.Material.Filled.LinkOff" @onclick="() => RevokeAsync(connection.Id)">Revoke</MudButton>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    private enum PageState
+    {
+        Ready,
+        Error,
+        Offline,
+        Unauthorized
+    }
+
+    private PageState _state;
+    private bool _isLoading = true;
+    private bool _isCreating;
+    private bool _isAccepting;
+    private bool _isVet;
+    private bool _isTutor;
+    private string _userId = string.Empty;
+    private string? _error;
+    private string? _createError;
+    private string? _acceptError;
+    private string? _realtimeWarning;
+    private string? _petIdText;
+    private string? _pregnancyIdText;
+    private readonly HashSet<Guid> _joinedPregnancies = [];
+    private readonly HashSet<Guid> _revokingIds = [];
+    private readonly CreateVetInvitationRequest _createForm = new();
+    private readonly AcceptVetInvitationRequest _acceptForm = new();
+    private List<VetConnectionDto> _connections = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        _isVet = user.IsInRole("Vet");
+        _isTutor = user.IsInRole("Tutor");
+        _userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+        RealtimeService.ConnectionUpdated += HandleRealtimeUpdateAsync;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _state = PageState.Ready;
+        _error = null;
+        var result = await VetConnectionService.ListAsync();
+        if (!result.Succeeded)
+        {
+            _state = result.IsUnauthorized ? PageState.Unauthorized : result.IsOffline ? PageState.Offline : PageState.Error;
+            _error = result.Error;
+            _isLoading = false;
+            return;
+        }
+
+        _connections = result.Data?.OrderByDescending(item => item.AcceptedAt ?? item.InvitationExpiresAt).ToList() ?? [];
+        _isLoading = false;
+        await EnsureRealtimeSubscriptionsAsync();
+    }
+
+    private async Task CreateInvitationAsync()
+    {
+        _createError = null;
+        if (!Guid.TryParse(_petIdText, out var petId))
+        {
+            _createError = "PetId invalido.";
+            return;
+        }
+
+        if (!Guid.TryParse(_pregnancyIdText, out var pregnancyId))
+        {
+            _createError = "PregnancyId invalido.";
+            return;
+        }
+
+        _isCreating = true;
+        _createForm.PetId = petId;
+        _createForm.PregnancyId = pregnancyId;
+        var result = await VetConnectionService.CreateInvitationAsync(_createForm);
+        _isCreating = false;
+
+        if (!result.Succeeded || result.Data is null)
+        {
+            _createError = result.Error;
+            return;
+        }
+
+        UpsertConnection(result.Data);
+        await EnsureRealtimeSubscriptionsAsync();
+        _petIdText = null;
+        _pregnancyIdText = null;
+        _createForm.TutorUserId = string.Empty;
+    }
+
+    private async Task AcceptInvitationAsync()
+    {
+        _acceptError = null;
+        _isAccepting = true;
+        var result = await VetConnectionService.AcceptInvitationAsync(_acceptForm);
+        _isAccepting = false;
+
+        if (!result.Succeeded || result.Data is null)
+        {
+            _acceptError = result.Error;
+            return;
+        }
+
+        UpsertConnection(result.Data);
+        await EnsureRealtimeSubscriptionsAsync();
+        _acceptForm.InvitationCode = string.Empty;
+    }
+
+    private async Task RevokeAsync(Guid connectionId)
+    {
+        _revokingIds.Add(connectionId);
+        var result = await VetConnectionService.RevokeAsync(connectionId);
+        _revokingIds.Remove(connectionId);
+
+        if (!result.Succeeded || result.Data is null)
+        {
+            _error = result.Error;
+            _state = result.IsUnauthorized ? PageState.Unauthorized : result.IsOffline ? PageState.Offline : PageState.Error;
+            return;
+        }
+
+        UpsertConnection(result.Data);
+    }
+
+    private async Task EnsureRealtimeSubscriptionsAsync()
+    {
+        try
+        {
+            await RealtimeService.EnsureConnectedAsync();
+            var subscribablePregnancies = _connections
+                .Where(CanSubscribe)
+                .Select(item => item.PregnancyId)
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToArray();
+
+            foreach (var pregnancyId in subscribablePregnancies)
+            {
+                if (_joinedPregnancies.Contains(pregnancyId))
+                    continue;
+
+                await RealtimeService.JoinPregnancyAsync(pregnancyId);
+                _joinedPregnancies.Add(pregnancyId);
+            }
+
+            _realtimeWarning = null;
+        }
+        catch
+        {
+            _realtimeWarning = "Atualizacoes em tempo real estao indisponiveis no momento.";
+        }
+    }
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "Active" => "Ativa",
+        "Revoked" => "Revogada",
+        _ => "Pendente"
+    };
+
+    private static string StatusClass(string status) => status switch
+    {
+        "Active" => "exam-status--upcoming",
+        "Revoked" => "exam-status--past",
+        _ => "exam-status--soon"
+    };
+
+    private bool CanSubscribe(VetConnectionDto connection)
+    {
+        if (connection.PregnancyId == Guid.Empty)
+            return false;
+
+        if (_isTutor && connection.TutorUserId == _userId)
+            return true;
+
+        return _isVet
+            && connection.VetUserId == _userId
+            && connection.Status.Equals("Active", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private Task HandleRealtimeUpdateAsync(VetConnectionUpdatedEvent update)
+    {
+        var existing = _connections.FindIndex(item => item.Id == update.ConnectionId);
+        if (existing < 0)
+            return Task.CompletedTask;
+
+        var current = _connections[existing];
+        current.Status = update.Status;
+        _connections = _connections
+            .OrderByDescending(item => item.AcceptedAt ?? item.InvitationExpiresAt)
+            .ToList();
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private void UpsertConnection(VetConnectionDto connection)
+    {
+        var existing = _connections.FindIndex(item => item.Id == connection.Id);
+        if (existing >= 0)
+            _connections[existing] = connection;
+        else
+            _connections.Add(connection);
+
+        _connections = _connections
+            .OrderByDescending(item => item.AcceptedAt ?? item.InvitationExpiresAt)
+            .ToList();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        RealtimeService.ConnectionUpdated -= HandleRealtimeUpdateAsync;
+        foreach (var pregnancyId in _joinedPregnancies)
+        {
+            await RealtimeService.LeavePregnancyAsync(pregnancyId);
+        }
+    }
+
+    private string ConnectionLabel(VetConnectionDto connection)
+    {
+        if (connection.TutorUserId == _userId)
+            return "Conexao com veterinario";
+
+        if (connection.VetUserId == _userId)
+            return "Conexao com tutor";
+
+        return "Conexao";
+    }
+}

@@ -158,6 +158,12 @@ Scientific content should use plain language and separate dogs and cats whenever
 - [ ] Populate the five phases with veterinarian-reviewed content for dogs and cats.
 - [ ] Add integration tests for authorization and linked-record isolation.
 
+### Current implementation note
+
+- Registration/login, pet ownership isolation, pregnancy tracking, diary, reminders, and alert flows are implemented in authenticated API slices.
+- Vet-Tutor connection endpoints and a protected SignalR collaboration hub are implemented with server-side role and resource checks.
+- Authorization-focused API/hub integration test scaffolding now exists in `tests/VetGest.API.Tests`; broader end-to-end and environment-specific validation remains in progress.
+
 ## 10. Value summary
 
 The Tutor registers a pregnant pet, VetGest calculates an estimated phase, the app explains relevant development and care, reminders support veterinary follow-up, and the shared diary helps the Tutor and Vet monitor changes together.
