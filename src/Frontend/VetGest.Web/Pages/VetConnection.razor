@@ -135,7 +135,7 @@
         var user = authState.User;
         _isVet = user.IsInRole("Vet");
         _isTutor = user.IsInRole("Tutor");
-        _userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+        _userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
         RealtimeService.ConnectionUpdated += HandleRealtimeUpdateAsync;
         await LoadAsync();
