@@ -18,6 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 var configuration = builder.Configuration;
+var allowedCorsOrigins = BuildAllowedCorsOrigins(configuration, builder.Environment.IsDevelopment());
 
 // Add Infrastructure services (EF Core, Database context)
 builder.Services.AddInfrastructure(configuration);
@@ -134,23 +135,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorClient", policy =>
     {
-        var configuredOrigins = configuration
-            .GetSection("Cors:AllowedOrigins")
-            .Get<string[]>();
-        var allowedOrigins = configuredOrigins is { Length: > 0 }
-            ? configuredOrigins
-            : ["https://localhost:7080", "http://localhost:5080"];
-
         policy
-            .WithOrigins(allowedOrigins)
+            .WithOrigins(allowedCorsOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
-
-        if (builder.Environment.IsDevelopment())
-        {
-            policy.WithOrigins("http://localhost:3000", "http://localhost:5050");
-        }
     });
 });
 
@@ -200,5 +189,72 @@ app.MapHealthChecks("/health");
 app.MapHub<VetConnectionsHub>("/hubs/vet-connections");
 
 app.Run();
+
+static string[] BuildAllowedCorsOrigins(IConfiguration configuration, bool isDevelopment)
+{
+    var origins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    AddOrigins(origins, configuration.GetSection("Cors:AllowedOrigins").Get<string[]>());
+    AddOrigins(origins, SplitOrigins(configuration["Cors:AllowedOrigins"]));
+    AddOrigins(origins, SplitOrigins(configuration["Cors:AllowedOriginsCsv"]));
+
+    if (isDevelopment)
+    {
+        AddOrigins(origins, [
+            "https://localhost:7080",
+            "http://localhost:5080",
+            "http://localhost:3000",
+            "http://localhost:5050"
+        ]);
+    }
+
+    if (origins.Count == 0)
+    {
+        AddOrigins(origins, ["https://localhost:7080", "http://localhost:5080"]);
+    }
+
+    return origins.ToArray();
+}
+
+static void AddOrigins(HashSet<string> target, IEnumerable<string>? values)
+{
+    if (values is null)
+    {
+        return;
+    }
+
+    foreach (var value in values)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            continue;
+        }
+
+        var normalized = value.Trim().TrimEnd('/');
+        if (!Uri.TryCreate(normalized, UriKind.Absolute, out var uri))
+        {
+            continue;
+        }
+
+        if (!uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+            && !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            continue;
+        }
+
+        target.Add($"{uri.Scheme}://{uri.Authority}");
+    }
+}
+
+static IEnumerable<string> SplitOrigins(string? value)
+{
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        return [];
+    }
+
+    return value
+        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+}
 
 public partial class Program;
