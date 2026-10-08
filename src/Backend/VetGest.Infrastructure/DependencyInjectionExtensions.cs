@@ -29,10 +29,10 @@ public static class DependencyInjectionExtensions
         {
             var connectionString = configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException("DefaultConnection not configured");
-            options.UseSqlServer(connectionString, sqlOptions =>
+            options.UseNpgsql(connectionString, npgsqlOptions =>
             {
-                sqlOptions.MigrationsAssembly(typeof(VetGestDbContext).Assembly.GetName().Name);
-                sqlOptions.EnableRetryOnFailure();
+                npgsqlOptions.MigrationsAssembly(typeof(VetGestDbContext).Assembly.GetName().Name);
+                npgsqlOptions.EnableRetryOnFailure();
             });
         });
 

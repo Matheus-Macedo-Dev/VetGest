@@ -90,7 +90,7 @@ public class VetGestDbContext : IdentityDbContext<ApplicationUser, IdentityRole<
 
         modelBuilder.Entity<ApplicationUser>()
             .Property(u => u.CreatedAt)
-            .HasDefaultValueSql("GETUTCDATE()");
+            .HasDefaultValueSql("timezone('utc', now())");
 
         // Apply entity configurations from EntityConfigurations folder
         modelBuilder.ApplyConfiguration(new PetConfiguration());

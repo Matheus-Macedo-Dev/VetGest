@@ -109,25 +109,25 @@ jobs:
           name: web-publish
           path: publish/web/wwwroot/
 
-  deploy-api:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: package-api
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-      - name: Download API artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: api-publish
-          path: publish/api
-
-      - name: Deploy API to Azure App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ vars.VETGEST_API_APP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: publish/api
+  # deploy-api:
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   needs: package-api
+  #   runs-on: ubuntu-latest
+  #   environment: production
+  #
+  #   steps:
+  #     - name: Download API artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: api-publish
+  #         path: publish/api
+  #
+  #     - name: Deploy API to Azure App Service
+  #       uses: azure/webapps-deploy@v3
+  #       with:
+  #         app-name: ${{ vars.VETGEST_API_APP_NAME }}
+  #         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+  #         package: publish/api
 
   deploy-web:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

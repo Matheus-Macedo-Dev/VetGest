@@ -50,7 +50,7 @@ public class PhaseConfiguration : IEntityTypeConfiguration<Phase>
         // Shadow properties (audit only, no OwnerId for reference data)
         builder.Property<DateTime>("CreatedAt")
             .ValueGeneratedOnAdd()
-            .HasDefaultValueSql("GETUTCDATE()");
+            .HasDefaultValueSql("timezone('utc', now())");
 
         // Indexes
         builder.HasIndex(new[] { "Species", "StartDayGestation", "EndDayGestation" });

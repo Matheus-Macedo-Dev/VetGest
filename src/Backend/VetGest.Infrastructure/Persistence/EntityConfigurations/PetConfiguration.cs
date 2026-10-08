@@ -51,11 +51,10 @@ public class PetConfiguration : IEntityTypeConfiguration<Pet>
 
         builder.Property<DateTime>("CreatedAt")
             .ValueGeneratedOnAdd()
-            .HasDefaultValueSql("GETUTCDATE()");
+            .HasDefaultValueSql("timezone('utc', now())");
 
         builder.Property<DateTime>("ModifiedAt")
-            .ValueGeneratedOnAddOrUpdate()
-            .HasDefaultValueSql("GETUTCDATE()");
+            .HasDefaultValueSql("timezone('utc', now())");
 
         // Indexes
         builder.HasIndex(new[] { "OwnerId" });
