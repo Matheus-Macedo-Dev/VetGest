@@ -23,7 +23,16 @@
         }
         <MudTextField @bind-Value="_model.FullName" For="@(() => _model.FullName)" Label="Nome completo" Required="true" autocomplete="name" />
         <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="E-mail" InputType="InputType.Email" Required="true" autocomplete="email" />
-        <MudTextField @bind-Value="_model.Password" For="@(() => _model.Password)" Label="Senha" InputType="InputType.Password" Required="true" autocomplete="new-password" HelperText="Use pelo menos 8 caracteres." />
+        <MudTextField @bind-Value="Password" For="@(() => _model.Password)" Label="Senha" InputType="InputType.Password" Required="true" autocomplete="new-password" HelperText="Use pelo menos 8 caracteres." Immediate="true" />
+        @if (!string.IsNullOrWhiteSpace(_model.Password))
+        {
+            <div class="password-strength" role="status" aria-live="polite">
+                <div class="password-strength-track" aria-hidden="true">
+                    <span class="@($"password-strength-fill password-strength-{_passwordStrengthTone}")" style="width: @_passwordStrengthPercent%"></span>
+                </div>
+                <p>Forca da senha: <strong>@_passwordStrengthLabel</strong>. @_passwordStrengthHint</p>
+            </div>
+        }
         <MudTextField @bind-Value="_model.ConfirmPassword" For="@(() => _model.ConfirmPassword)" Label="Confirme a senha" InputType="InputType.Password" Required="true" autocomplete="new-password" />
         <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isLoading" FullWidth="true" StartIcon="@Icons.Material.Filled.PersonAdd">
             @(_isLoading ? "Criando conta..." : "Criar conta de tutor")
@@ -38,6 +47,20 @@
     private bool _isLoading;
     private bool _offline;
     private string? _error;
+    private int _passwordStrengthPercent;
+    private string _passwordStrengthLabel = "Fraca";
+    private string _passwordStrengthHint = "Adicione letras maiusculas, numeros e simbolos.";
+    private string _passwordStrengthTone = "weak";
+
+    private string Password
+    {
+        get => _model.Password;
+        set
+        {
+            _model.Password = value;
+            EvaluatePasswordStrength(value);
+        }
+    }
 
     private async Task SubmitAsync()
     {
@@ -58,4 +81,48 @@
     }
 
     private IReadOnlyDictionary<string, string[]>? _validationErrors;
+
+    private void EvaluatePasswordStrength(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            _passwordStrengthPercent = 0;
+            _passwordStrengthLabel = "Fraca";
+            _passwordStrengthHint = "Use pelo menos 8 caracteres.";
+            _passwordStrengthTone = "weak";
+            return;
+        }
+
+        var score = 0;
+        if (password.Length >= 8) score++;
+        if (password.Any(char.IsLower)) score++;
+        if (password.Any(char.IsUpper)) score++;
+        if (password.Any(char.IsDigit)) score++;
+        if (password.Any(ch => !char.IsLetterOrDigit(ch))) score++;
+
+        if (score <= 2)
+        {
+            _passwordStrengthPercent = 34;
+            _passwordStrengthLabel = "Fraca";
+            _passwordStrengthHint = "Combine maiusculas, minusculas, numeros e simbolos.";
+            _passwordStrengthTone = "weak";
+            return;
+        }
+
+        if (score == 3)
+        {
+            _passwordStrengthPercent = 58;
+            _passwordStrengthLabel = "Media";
+            _passwordStrengthHint = "Boa base. Tente adicionar simbolos e aumentar o tamanho.";
+            _passwordStrengthTone = "medium";
+            return;
+        }
+
+        _passwordStrengthPercent = password.Length >= 12 ? 100 : 82;
+        _passwordStrengthLabel = password.Length >= 12 ? "Forte" : "Boa";
+        _passwordStrengthHint = password.Length >= 12
+            ? "Excelente. Evite reutilizar em outros servicos." 
+            : "Quase forte. Com 12+ caracteres, fica ainda melhor.";
+        _passwordStrengthTone = password.Length >= 12 ? "strong" : "good";
+    }
 }

@@ -16,7 +16,7 @@
 	}
 	else if (_state.Data is null)
 	{
-			<section class="state-panel" aria-live="polite"><MudIcon Icon="@Icons.Material.Filled.Pets" Size="Size.Large" /><div><strong>@(_isAuthenticated ? "Nenhuma gestação registrada" : "Nenhuma gestação cadastrada")</strong><span>@(_isAuthenticated ? "Acesse Meus pets para escolher um pet e registrar uma gestação. Dados de demonstração não são usados em contas autenticadas." : "Este é um espaço de demonstração. Entre ou crie uma conta para cuidar dos seus próprios dados.")</span>@if (_isAuthenticated) { <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="pets" StartIcon="@Icons.Material.Filled.Pets">Acessar meus pets</MudButton> } else { <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="login">Entrar</MudButton> }</div></section>
+			<section class="state-panel" aria-live="polite"><MudIcon Icon="@Icons.Material.Filled.Pets" Size="Size.Large" /><div><strong>@(_isAuthenticated ? "Nenhuma gestação registrada" : "Nenhuma gestação cadastrada")</strong><span>@(_isAuthenticated ? "Acesse Meus pets para escolher um pet e registrar uma gestação. Dados de demonstração não são usados em contas autenticadas." : "Este é um espaço de demonstração. Entre ou crie uma conta para cuidar dos seus próprios dados.")</span>@if (_isAuthenticated) { <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="pets" StartIcon="@Icons.Material.Filled.Pets">Acessar meus pets</MudButton> } else { <div class="state-panel-actions"><MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="login">Entrar</MudButton><MudButton Variant="Variant.Text" Color="Color.Primary" Href="register" StartIcon="@Icons.Material.Filled.PersonAdd">Primeira vez? Criar conta</MudButton></div> }</div></section>
 	}
 	else
 	{

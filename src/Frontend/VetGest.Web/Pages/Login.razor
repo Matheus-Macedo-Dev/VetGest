@@ -9,10 +9,24 @@
     <EditForm Model="_model" OnValidSubmit="SubmitAsync">
         <DataAnnotationsValidator />
         @if (_error is not null) { <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)">@_error</MudAlert> }
+        @if (_showCreateAccountTip)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                Primeira vez no VetGest? <a href="register">Crie sua conta de tutor</a> para começar.
+            </MudAlert>
+        }
         <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="E-mail" InputType="InputType.Email" Required="true" autocomplete="email" />
         <MudTextField @bind-Value="_model.Password" For="@(() => _model.Password)" Label="Senha" InputType="InputType.Password" Required="true" autocomplete="current-password" />
         <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isLoading" FullWidth="true" StartIcon="@Icons.Material.Filled.Login">
-            @(_isLoading ? "Entrando..." : "Entrar")
+            @if (_isLoading)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Inherit" Class="button-inline-spinner" />
+                <span>Entrando...</span>
+            }
+            else
+            {
+                <span>Entrar</span>
+            }
         </MudButton>
         <ValidationSummary />
     </EditForm>
@@ -23,7 +37,17 @@
     private readonly LoginRequest _model = new();
     private bool _isLoading;
     private bool _offline;
+    private bool _showCreateAccountTip;
+    private string? _returnUrl;
     private string? _error;
+
+    protected override void OnInitialized()
+    {
+        var currentUri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var reason = ReadQueryValue(currentUri, "reason");
+        _showCreateAccountTip = string.Equals(reason, "auth-required", StringComparison.OrdinalIgnoreCase);
+        _returnUrl = ReadQueryValue(currentUri, "returnUrl");
+    }
 
     private async Task SubmitAsync()
     {
@@ -33,11 +57,51 @@
         _isLoading = false;
         if (result.Succeeded)
         {
-            Navigation.NavigateTo("pets");
+            Navigation.NavigateTo(GetSafeReturnUrl(), replace: true);
             return;
         }
 
         _offline = result.IsOffline;
         _error = result.Error;
+    }
+
+    private string GetSafeReturnUrl()
+    {
+        if (!string.IsNullOrWhiteSpace(_returnUrl) &&
+            _returnUrl.StartsWith('/') &&
+            !_returnUrl.StartsWith("//") &&
+            !_returnUrl.Contains("://", StringComparison.Ordinal))
+        {
+            return _returnUrl;
+        }
+
+        return "pets";
+    }
+
+    private static string? ReadQueryValue(Uri uri, string key)
+    {
+        if (string.IsNullOrWhiteSpace(uri.Query))
+        {
+            return null;
+        }
+
+        foreach (var pair in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var segments = pair.Split('=', 2);
+            var currentKey = Uri.UnescapeDataString(segments[0]);
+            if (!string.Equals(currentKey, key, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (segments.Length == 1)
+            {
+                return string.Empty;
+            }
+
+            return Uri.UnescapeDataString(segments[1].Replace('+', ' '));
+        }
+
+        return null;
     }
 }
