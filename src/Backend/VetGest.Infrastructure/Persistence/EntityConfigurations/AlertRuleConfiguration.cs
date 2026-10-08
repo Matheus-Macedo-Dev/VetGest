@@ -48,7 +48,7 @@ public class AlertRuleConfiguration : IEntityTypeConfiguration<AlertRule>
         // Shadow properties (audit only, no OwnerId for reference data)
         builder.Property<DateTime>("CreatedAt")
             .ValueGeneratedOnAdd()
-            .HasDefaultValueSql("timezone('utc', now())");
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
         // Indexes
         // Composite unique index: (Species, Name) allows same names for different species

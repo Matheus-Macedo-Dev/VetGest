@@ -66,10 +66,10 @@ public class PregnancyDiaryEntryConfiguration : IEntityTypeConfiguration<Pregnan
 
         builder.Property<DateTime>("CreatedAt")
             .ValueGeneratedOnAdd()
-            .HasDefaultValueSql("timezone('utc', now())");
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
         builder.Property<DateTime>("ModifiedAt")
-            .HasDefaultValueSql("timezone('utc', now())");
+            .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
         // Indexes
         builder.HasIndex(new[] { "OwnerId" });
