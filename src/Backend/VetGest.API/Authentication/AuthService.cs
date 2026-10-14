@@ -70,9 +70,14 @@ public sealed class AuthService(
             return InvalidCredentials();
 
         var signInResult = await signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
-        return !signInResult.Succeeded
-            ? InvalidCredentials()
-            : new(StatusCodes.Status200OK, ApiResponse<AuthResponse>.Ok(await CreateAuthResponseAsync(user)));
+        if (!signInResult.Succeeded)
+            return InvalidCredentials();
+
+        // Accounts without any role (created before role assignment) default to Tutor.
+        if ((await userManager.GetRolesAsync(user)).Count == 0 && await roleManager.RoleExistsAsync("Tutor"))
+            await userManager.AddToRoleAsync(user, "Tutor");
+
+        return new(StatusCodes.Status200OK, ApiResponse<AuthResponse>.Ok(await CreateAuthResponseAsync(user)));
     }
 
     private async Task<AuthResponse> CreateAuthResponseAsync(ApplicationUser user)
