@@ -5,7 +5,7 @@ using VetGest.Contracts.Common;
 
 namespace VetGest.Web.Services.Api;
 
-public abstract class ApiClient(HttpClient httpClient)
+public abstract class ApiClient(HttpClient httpClient, IApiWakeUpService wakeUpService)
 {
     protected async Task<ApiCallResult<T>> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -13,6 +13,7 @@ public abstract class ApiClient(HttpClient httpClient)
 
         try
         {
+            await wakeUpService.WakeAsync(cancellationToken);
             response = await httpClient.SendAsync(request, cancellationToken);
 
             if (response.StatusCode == HttpStatusCode.NoContent)
@@ -58,6 +59,10 @@ public abstract class ApiClient(HttpClient httpClient)
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             return ApiCallResult<T>.Failure("A solicitação demorou demais. Tente novamente.", true);
+        }
+        finally
+        {
+            response?.Dispose();
         }
     }
 }

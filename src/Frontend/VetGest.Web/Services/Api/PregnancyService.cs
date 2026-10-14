@@ -3,7 +3,8 @@ using VetGest.Contracts.Pregnancies;
 
 namespace VetGest.Web.Services.Api;
 
-public sealed class PregnancyService(HttpClient httpClient) : ApiClient(httpClient)
+public sealed class PregnancyService(HttpClient httpClient, IApiWakeUpService wakeUpService)
+    : ApiClient(httpClient, wakeUpService)
 {
     public Task<ApiCallResult<PregnancyDto>> GetCurrentAsync(Guid petId,
         CancellationToken cancellationToken = default) =>

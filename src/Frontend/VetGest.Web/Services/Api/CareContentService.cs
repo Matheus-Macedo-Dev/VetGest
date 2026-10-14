@@ -2,7 +2,8 @@ using VetGest.Contracts.Pregnancies;
 
 namespace VetGest.Web.Services.Api;
 
-public sealed class CareContentService(HttpClient httpClient) : ApiClient(httpClient)
+public sealed class CareContentService(HttpClient httpClient, IApiWakeUpService wakeUpService)
+    : ApiClient(httpClient, wakeUpService)
 {
     public Task<ApiCallResult<CareContentDto>> GetAsync(Guid petId, Guid pregnancyId,
         CancellationToken cancellationToken = default) =>

@@ -2,7 +2,8 @@ using VetGest.Contracts.Pregnancies;
 
 namespace VetGest.Web.Services.Api;
 
-public sealed class ExaminationService(HttpClient httpClient) : ApiClient(httpClient)
+public sealed class ExaminationService(HttpClient httpClient, IApiWakeUpService wakeUpService)
+    : ApiClient(httpClient, wakeUpService)
 {
     public Task<ApiCallResult<IReadOnlyList<ExaminationReminderDto>>> GetAsync(Guid petId, Guid pregnancyId,
         CancellationToken cancellationToken = default) =>

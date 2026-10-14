@@ -4,7 +4,8 @@ using VetGest.Contracts.Pets;
 
 namespace VetGest.Web.Services.Api;
 
-public sealed class PetService(HttpClient httpClient) : ApiClient(httpClient)
+public sealed class PetService(HttpClient httpClient, IApiWakeUpService wakeUpService)
+    : ApiClient(httpClient, wakeUpService)
 {
     public Task<ApiCallResult<IReadOnlyList<PetDto>>> GetPetsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<IReadOnlyList<PetDto>>(new HttpRequestMessage(HttpMethod.Get, "api/pets"), cancellationToken);

@@ -5,8 +5,9 @@ using VetGest.Web.Services.Auth;
 
 namespace VetGest.Web.Services.Api;
 
-public sealed class AuthService(HttpClient httpClient, CustomAuthenticationStateProvider authStateProvider)
-    : ApiClient(httpClient)
+public sealed class AuthService(HttpClient httpClient, CustomAuthenticationStateProvider authStateProvider,
+    IApiWakeUpService wakeUpService)
+    : ApiClient(httpClient, wakeUpService)
 {
     public Task<ApiCallResult<AuthResponse>> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
         AuthenticateAsync("login", request, cancellationToken);

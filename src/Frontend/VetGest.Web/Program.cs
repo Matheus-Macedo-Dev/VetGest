@@ -17,6 +17,7 @@ builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<IBrowserTokenStore, SessionTokenStore>();
 builder.Services.AddScoped<CustomAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<CustomAuthenticationStateProvider>());
+builder.Services.AddScoped<IApiWakeUpService, ApiWakeUpService>();
 builder.Services.AddScoped(sp =>
 {
 	var baseUrl = builder.Configuration["ApiBaseUrl"] ?? builder.HostEnvironment.BaseAddress;

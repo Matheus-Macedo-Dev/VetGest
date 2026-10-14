@@ -3,7 +3,8 @@ using VetGest.Contracts.Pregnancies;
 
 namespace VetGest.Web.Services.Api;
 
-public sealed class DiaryService(HttpClient httpClient) : ApiClient(httpClient)
+public sealed class DiaryService(HttpClient httpClient, IApiWakeUpService wakeUpService)
+    : ApiClient(httpClient, wakeUpService)
 {
     public Task<ApiCallResult<IReadOnlyList<DiaryEntryDto>>> GetEntriesAsync(Guid petId, Guid pregnancyId,
         CancellationToken cancellationToken = default) =>
