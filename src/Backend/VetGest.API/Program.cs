@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using VetGest.API.Authentication;
 using VetGest.API.Authorization;
 using VetGest.Infrastructure;
@@ -106,6 +107,8 @@ builder.Services.AddAuthentication(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
     {
+        NameClaimType = ClaimTypes.NameIdentifier,
+        RoleClaimType = ClaimTypes.Role,
         ValidateIssuer = true,
         ValidIssuer = jwtSettings["Issuer"] ?? "VetGest.API",
 

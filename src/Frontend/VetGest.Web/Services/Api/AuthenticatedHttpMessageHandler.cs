@@ -9,8 +9,14 @@ public sealed class AuthenticatedHttpMessageHandler(IBrowserTokenStore tokenStor
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var token = await tokenStore.GetAsync();
-        if (!string.IsNullOrWhiteSpace(token) && request.RequestUri?.IsAbsoluteUri == true &&
-            request.RequestUri.AbsolutePath.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
+        var requestPath = request.RequestUri is { IsAbsoluteUri: true } absoluteUri
+            ? absoluteUri.AbsolutePath
+            : request.RequestUri?.OriginalString;
+
+        var isApiRequest = requestPath?.StartsWith("api/", StringComparison.OrdinalIgnoreCase) == true
+            || requestPath?.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) == true;
+
+        if (!string.IsNullOrWhiteSpace(token) && isApiRequest)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
