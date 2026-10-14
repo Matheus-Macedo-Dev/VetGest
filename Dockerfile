@@ -22,7 +22,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080
 
 COPY --from=build /app/publish .
 
-ENTRYPOINT ["dotnet", "VetGest.API.dll", "--urls", "http://0.0.0.0:${PORT:-8080}"]
+ENTRYPOINT ["dotnet", "VetGest.API.dll"]
