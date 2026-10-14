@@ -84,6 +84,18 @@ public sealed class DateTimeMaterializationTests : IAsyncLifetime
     }
 
     [Fact]
+    public void AddInfrastructure_rejects_missing_default_connection()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>())
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => services.AddInfrastructure(configuration));
+        Assert.Contains("DefaultConnection", exception.Message);
+    }
+
+    [Fact]
     public void AddInfrastructure_rejects_sql_server_connection_strings()
     {
         var services = new ServiceCollection();

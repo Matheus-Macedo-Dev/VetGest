@@ -24,8 +24,7 @@ public static class DependencyInjectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException("DefaultConnection not configured");
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
 
         ValidatePostgresConnectionString(connectionString);
 

@@ -154,12 +154,8 @@ var app = builder.Build();
 if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
-    if (app.Environment.IsDevelopment())
-    {
-        var dbContext = scope.ServiceProvider.GetRequiredService<VetGestDbContext>();
-        await dbContext.Database.MigrateAsync();
-    }
-
+    var dbContext = scope.ServiceProvider.GetRequiredService<VetGestDbContext>();
+    await dbContext.Database.MigrateAsync();
     await RoleSeeder.EnsureRolesAsync(scope.ServiceProvider);
 }
 
