@@ -80,6 +80,16 @@ Configure these API App Settings in Azure App Service, without committing them:
 - `Jwt__Issuer` and `Jwt__Audience`: production token values.
 - `Cors__AllowedOrigins__0`: public HTTPS URL of the Static Web App.
 
+### Supabase PostgreSQL
+
+Use the Supavisor **session pooler** string (Project Settings > Database > Connection string), because the direct host is IPv6-only and many hosts cannot reach it. The username is `postgres.<project-ref>`. Keep the Npgsql pool small and recycle idle connections so pooled sockets dropped by Supabase or the host network are not reused:
+
+```
+Host=aws-0-<region>.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<project-ref>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true;Pooling=true;Maximum Pool Size=10;Keepalive=30;Connection Idle Lifetime=30;Timeout=15;Command Timeout=30
+```
+
+If you use the transaction pooler (port 6543), also add `No Reset On Close=true` and do not enable `Max Auto Prepare`. Free projects pause after inactivity and must be resumed in the Supabase dashboard.
+
 The free or consumption tiers may sleep, have quotas, and are not equivalent to production-grade availability. Apply database migrations through a controlled release step before serving traffic; production startup does not apply migrations automatically.
 
 ## Authenticated pet registration backend

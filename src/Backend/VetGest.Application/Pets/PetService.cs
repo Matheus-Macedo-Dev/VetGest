@@ -36,7 +36,7 @@ public sealed class PetService : IPetService
             request.Name.Trim(),
             Species.FromString(request.Species.Trim()).Value,
             request.Breed?.Trim(),
-            request.DateOfBirth,
+            request.DateOfBirth is { } dateOfBirth ? DateTime.SpecifyKind(dateOfBirth.Date, DateTimeKind.Utc) : null,
             request.CurrentWeight,
             request.PhotoUrl?.Trim());
 

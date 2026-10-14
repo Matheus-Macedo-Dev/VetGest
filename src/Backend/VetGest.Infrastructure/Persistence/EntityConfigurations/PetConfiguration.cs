@@ -33,7 +33,10 @@ public class PetConfiguration : IEntityTypeConfiguration<Pet>
             .HasMaxLength(100);
 
         builder.Property(p => p.DateOfBirth)
-            .IsRequired(false);
+            .IsRequired(false)
+            .HasConversion(
+                value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : (DateTime?)null,
+                value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : (DateTime?)null);
 
         builder.Property(p => p.CurrentWeight)
             .HasPrecision(5, 2); // Up to 999.99 kg
