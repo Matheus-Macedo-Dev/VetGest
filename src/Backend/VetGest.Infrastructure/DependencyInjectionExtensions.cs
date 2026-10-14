@@ -24,11 +24,14 @@ public static class DependencyInjectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("DefaultConnection not configured");
+
+        ValidatePostgresConnectionString(connectionString);
+
         // Register DbContext
         services.AddDbContext<VetGestDbContext>(options =>
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnection")
-                ?? throw new InvalidOperationException("DefaultConnection not configured");
             options.UseNpgsql(connectionString, npgsqlOptions =>
             {
                 npgsqlOptions.MigrationsAssembly(typeof(VetGestDbContext).Assembly.GetName().Name);
@@ -43,5 +46,30 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IAlertRuleRepository, AlertRuleRepository>();
 
         return services;
+    }
+
+    private static void ValidatePostgresConnectionString(string connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException("DefaultConnection is empty. Configure a PostgreSQL/Npgsql connection string.");
+        }
+
+        var sqlServerIndicators = new[]
+        {
+            "Server=",
+            "Data Source=",
+            "Initial Catalog=",
+            "Trusted_Connection=",
+            "Integrated Security=",
+            "User ID=",
+            "UID="
+        };
+
+        if (sqlServerIndicators.Any(indicator => connectionString.Contains(indicator, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                "DefaultConnection must use a PostgreSQL/Npgsql connection string. SQL Server or Azure SQL connection strings are not supported by the current infrastructure configuration.");
+        }
     }
 }

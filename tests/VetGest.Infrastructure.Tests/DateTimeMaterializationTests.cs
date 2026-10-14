@@ -1,5 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using VetGest.Domain.Entities;
 using VetGest.Infrastructure.Persistence;
 
@@ -79,6 +81,34 @@ public sealed class DateTimeMaterializationTests : IAsyncLifetime
         var materializedEntry = Assert.Single(result);
         Assert.Equal(DateTimeKind.Utc, materializedEntry.EntryDate.Kind);
         Assert.Equal(entryDate, materializedEntry.EntryDate);
+    }
+
+    [Fact]
+    public void AddInfrastructure_rejects_sql_server_connection_strings()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Server=tcp:vetgest.database.windows.net,1433;Initial Catalog=vetgest;Persist Security Info=False;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+            })
+            .Build();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => services.AddInfrastructure(configuration));
+        Assert.Contains("PostgreSQL/Npgsql", exception.Message);
+    }
+
+    [Fact]
+    public void Model_does_not_define_no_op_owner_query_filters()
+    {
+        using var context = CreateContext();
+        var petEntity = context.Model.FindEntityType(typeof(Pet));
+        var vetConnectionEntity = context.Model.FindEntityType(typeof(VetConnection));
+
+        Assert.NotNull(petEntity);
+        Assert.NotNull(vetConnectionEntity);
+        Assert.Empty(petEntity!.GetDeclaredQueryFilters());
+        Assert.Empty(vetConnectionEntity!.GetDeclaredQueryFilters());
     }
 
     private VetGestDbContext CreateContext() => new(

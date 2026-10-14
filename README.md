@@ -60,7 +60,7 @@ dotnet test VetGest.Backend.sln
 
 The GitHub Actions workflow builds and tests both solutions, publishes the API and Web as separate artifacts, and deploys them only after a push to `main`.
 
-The current database remains Azure SQL. No Supabase or PostgreSQL migration is part of this deployment slice.
+The current database configuration is PostgreSQL via Npgsql. The infrastructure expects `ConnectionStrings__DefaultConnection` to be a PostgreSQL connection string, not an Azure SQL connection string.
 
 Configure these GitHub production environment values before enabling deployment:
 
@@ -75,7 +75,7 @@ The Entra application must have a federated credential for this GitHub repositor
 
 Configure these API App Settings in Azure App Service, without committing them:
 
-- `ConnectionStrings__DefaultConnection`: Azure SQL connection string.
+- `ConnectionStrings__DefaultConnection`: PostgreSQL connection string for the API database.
 - `Jwt__SecretKey`: production JWT signing key.
 - `Jwt__Issuer` and `Jwt__Audience`: production token values.
 - `Cors__AllowedOrigins__0`: public HTTPS URL of the Static Web App.

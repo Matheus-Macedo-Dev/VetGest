@@ -8,8 +8,8 @@ using VetGest.Infrastructure.Persistence.EntityConfigurations;
 namespace VetGest.Infrastructure.Persistence;
 
 /// <summary>
-/// VetGest database context with Identity integration and global query filters.
-/// Supports multi-tenant data isolation at the database level via shadow properties.
+/// VetGest database context with Identity integration and audit shadow properties.
+/// Ownership checks are enforced in repositories using the OwnerId shadow property.
 /// </summary>
 public class VetGestDbContext : IdentityDbContext<ApplicationUser, IdentityRole<string>, string>
 {

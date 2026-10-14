@@ -67,7 +67,6 @@ public class PetConfiguration : IEntityTypeConfiguration<Pet>
             .HasForeignKey(pr => pr.PetId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Global query filter (applied in DbContext)
-        builder.HasQueryFilter(p => EF.Property<string>(p, "OwnerId") == EF.Property<string>(p, "OwnerId"));
+        // Ownership is enforced in repository queries, not in a no-op global filter.
     }
 }

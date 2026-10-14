@@ -79,8 +79,6 @@ public class VetConnectionConfiguration : IEntityTypeConfiguration<VetConnection
 
         // No direct navigation to Users (they're in Identity tables)
         // Authorization layer will validate VetUserId and TutorUserId exist
-
-        // Global query filter (applied in DbContext)
-        builder.HasQueryFilter(p => EF.Property<string>(p, "OwnerId") == EF.Property<string>(p, "OwnerId"));
+        // Ownership is enforced in repository queries, not in a no-op global filter.
     }
 }
