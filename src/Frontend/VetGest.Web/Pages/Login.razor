@@ -17,7 +17,7 @@
         }
         <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="E-mail" InputType="InputType.Email" Required="true" autocomplete="email" />
         <MudTextField @bind-Value="_model.Password" For="@(() => _model.Password)" Label="Senha" InputType="InputType.Password" Required="true" autocomplete="current-password" />
-        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isLoading" FullWidth="true" StartIcon="@Icons.Material.Filled.Login">
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanSubmit)" FullWidth="true" StartIcon="@Icons.Material.Filled.Login">
             @if (_isLoading)
             {
                 <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Inherit" Class="button-inline-spinner" />
@@ -28,6 +28,10 @@
                 <span>Entrar</span>
             }
         </MudButton>
+        @if (!_isLoading && !CanSubmit)
+        {
+            <p class="form-hint form-hint-warning">Informe e-mail e senha para continuar.</p>
+        }
         <ValidationSummary />
     </EditForm>
     <p class="form-footer">Ainda não tem conta? <a href="register">Crie uma conta de tutor</a></p>
@@ -41,6 +45,11 @@
     private string? _returnUrl;
     private string? _error;
 
+    private bool CanSubmit =>
+        !_isLoading &&
+        !string.IsNullOrWhiteSpace(_model.Email) &&
+        !string.IsNullOrWhiteSpace(_model.Password);
+
     protected override void OnInitialized()
     {
         var currentUri = Navigation.ToAbsoluteUri(Navigation.Uri);
@@ -51,6 +60,11 @@
 
     private async Task SubmitAsync()
     {
+        if (!CanSubmit)
+        {
+            return;
+        }
+
         _isLoading = true;
         _error = null;
         var result = await AuthService.LoginAsync(_model);

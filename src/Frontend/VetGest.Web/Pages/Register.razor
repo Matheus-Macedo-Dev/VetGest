@@ -1,4 +1,5 @@
 @page "/register"
+@using Microsoft.AspNetCore.Components.Web
 @inject AuthService AuthService
 @inject NavigationManager Navigation
 
@@ -23,20 +24,64 @@
         }
         <MudTextField @bind-Value="_model.FullName" For="@(() => _model.FullName)" Label="Nome completo" Required="true" autocomplete="name" />
         <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="E-mail" InputType="InputType.Email" Required="true" autocomplete="email" />
-        <MudTextField @bind-Value="Password" For="@(() => _model.Password)" Label="Senha" InputType="InputType.Password" Required="true" autocomplete="new-password" HelperText="Use pelo menos 8 caracteres." Immediate="true" />
-        @if (!string.IsNullOrWhiteSpace(_model.Password))
-        {
-            <div class="password-strength" role="status" aria-live="polite">
-                <div class="password-strength-track" aria-hidden="true">
-                    <span class="@($"password-strength-fill password-strength-{_passwordStrengthTone}")" style="width: @_passwordStrengthPercent%"></span>
-                </div>
-                <p>Forca da senha: <strong>@_passwordStrengthLabel</strong>. @_passwordStrengthHint</p>
+        <MudTextField @bind-Value="Password"
+                      For="@(() => _model.Password)"
+                      Label="Senha"
+                      InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                      Required="true"
+                      autocomplete="new-password"
+                      HelperText="Use pelo menos 8 caracteres."
+                      Immediate="true"
+                      OnKeyUp="HandlePasswordKeyUp"
+                      OnBlur="HandlePasswordBlur"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                      OnAdornmentClick="TogglePasswordVisibility"
+                      AdornmentAriaLabel="Mostrar ou ocultar senha" />
+        <ul class="password-checklist" aria-live="polite">
+            <li class="@GetRuleClass(_passwordRules.HasMinLength)"><MudIcon Icon="@GetRuleIcon(_passwordRules.HasMinLength)" aria-hidden="true" /><span>Pelo menos 8 caracteres</span></li>
+            <li class="@GetRuleClass(_passwordRules.HasUppercase)"><MudIcon Icon="@GetRuleIcon(_passwordRules.HasUppercase)" aria-hidden="true" /><span>Ao menos 1 letra maiúscula</span></li>
+            <li class="@GetRuleClass(_passwordRules.HasSpecial)"><MudIcon Icon="@GetRuleIcon(_passwordRules.HasSpecial)" aria-hidden="true" /><span>Ao menos 1 caractere especial</span></li>
+            <li class="@GetRuleClass(_passwordRules.HasLetterNumberSpecialCombination)"><MudIcon Icon="@GetRuleIcon(_passwordRules.HasLetterNumberSpecialCombination)" aria-hidden="true" /><span>Combinação com letra, número e caractere especial</span></li>
+        </ul>
+        <div class="password-strength" role="status" aria-live="polite">
+            <div class="password-strength-track" aria-hidden="true">
+                <span class="@($"password-strength-fill password-strength-{_passwordStrengthTone}")" style="width: @_passwordStrengthPercent%"></span>
             </div>
+            <p>Força da senha: <strong>@_passwordStrengthLabel</strong>. @_passwordStrengthHint</p>
+        </div>
+        @if (_showCapsLockWarning)
+        {
+            <p class="caps-lock-warning" role="status" aria-live="polite">
+                <MudIcon Icon="@Icons.Material.Filled.KeyboardCapslock" aria-hidden="true" /> Caps Lock pode estar ativado.
+            </p>
         }
-        <MudTextField @bind-Value="_model.ConfirmPassword" For="@(() => _model.ConfirmPassword)" Label="Confirme a senha" InputType="InputType.Password" Required="true" autocomplete="new-password" />
-        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isLoading" FullWidth="true" StartIcon="@Icons.Material.Filled.PersonAdd">
+        <MudTextField @bind-Value="_model.ConfirmPassword"
+                      For="@(() => _model.ConfirmPassword)"
+                      Label="Confirme a senha"
+                      InputType="@(_showConfirmPassword ? InputType.Text : InputType.Password)"
+                      Required="true"
+                      autocomplete="new-password"
+                      Immediate="true"
+                      OnKeyUp="HandleConfirmPasswordKeyUp"
+                      OnBlur="HandleConfirmPasswordBlur"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@(_showConfirmPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                      OnAdornmentClick="ToggleConfirmPasswordVisibility"
+                      AdornmentAriaLabel="Mostrar ou ocultar confirmação de senha" />
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanSubmit)" FullWidth="true" StartIcon="@Icons.Material.Filled.PersonAdd">
             @(_isLoading ? "Criando conta..." : "Criar conta de tutor")
         </MudButton>
+        @if (_showSuccessFeedback)
+        {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Filled" Class="auth-success-panel" Dense="true">
+                Conta criada com sucesso. Redirecionando para seus pets...
+            </MudAlert>
+        }
+        else if (!CanSubmit)
+        {
+            <p class="form-hint form-hint-warning">@SubmitDisabledReason</p>
+        }
         <ValidationSummary />
     </EditForm>
     <p class="form-footer">Já tem uma conta? <a href="login">Entre aqui</a></p>
@@ -45,12 +90,75 @@
 @code {
     private readonly RegisterRequest _model = new() { Role = "Tutor" };
     private bool _isLoading;
+    private bool _showSuccessFeedback;
     private bool _offline;
     private string? _error;
+    private bool _showPassword;
+    private bool _showConfirmPassword;
+    private bool _showCapsLockWarning;
+    private bool _passwordFieldFocused;
+    private bool _confirmPasswordFieldFocused;
+    private bool _hasTypedPassword;
+    private PasswordRulesState _passwordRules;
     private int _passwordStrengthPercent;
     private string _passwordStrengthLabel = "Fraca";
-    private string _passwordStrengthHint = "Adicione letras maiusculas, numeros e simbolos.";
+    private string _passwordStrengthHint = "Use pelo menos 8 caracteres e complete os requisitos abaixo.";
     private string _passwordStrengthTone = "weak";
+
+    private bool CanSubmit =>
+        !_isLoading &&
+        !_showSuccessFeedback &&
+        !string.IsNullOrWhiteSpace(_model.FullName) &&
+        !string.IsNullOrWhiteSpace(_model.Email) &&
+        _passwordRules.AllSatisfied &&
+        PasswordsMatch;
+
+    private bool PasswordsMatch =>
+        !string.IsNullOrWhiteSpace(_model.ConfirmPassword) &&
+        string.Equals(_model.Password, _model.ConfirmPassword, StringComparison.Ordinal);
+
+    private string SubmitDisabledReason
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_model.FullName))
+            {
+                return "Informe seu nome completo para continuar.";
+            }
+
+            if (string.IsNullOrWhiteSpace(_model.Email))
+            {
+                return "Informe seu e-mail para continuar.";
+            }
+
+            if (!_passwordRules.HasMinLength)
+            {
+                return "A senha deve ter pelo menos 8 caracteres.";
+            }
+
+            if (!_passwordRules.HasUppercase)
+            {
+                return "Inclua ao menos uma letra maiúscula na senha.";
+            }
+
+            if (!_passwordRules.HasSpecial)
+            {
+                return "Inclua ao menos um caractere especial na senha.";
+            }
+
+            if (!_passwordRules.HasLetterNumberSpecialCombination)
+            {
+                return "Use uma combinação com letra, número e caractere especial.";
+            }
+
+            if (!PasswordsMatch)
+            {
+                return "A confirmação de senha deve ser igual à senha.";
+            }
+
+            return string.Empty;
+        }
+    }
 
     private string Password
     {
@@ -64,6 +172,11 @@
 
     private async Task SubmitAsync()
     {
+        if (!CanSubmit)
+        {
+            return;
+        }
+
         _isLoading = true;
         _error = null;
         _validationErrors = null;
@@ -71,10 +184,13 @@
         _isLoading = false;
         if (result.Succeeded)
         {
+            _showSuccessFeedback = true;
+            await Task.Delay(1400);
             Navigation.NavigateTo("pets");
             return;
         }
 
+        _showSuccessFeedback = false;
         _offline = result.IsOffline;
         _error = result.Error;
         _validationErrors = result.ValidationErrors;
@@ -84,8 +200,11 @@
 
     private void EvaluatePasswordStrength(string password)
     {
+        _hasTypedPassword = !string.IsNullOrWhiteSpace(password);
+
         if (string.IsNullOrWhiteSpace(password))
         {
+            _passwordRules = PasswordRulesState.Empty;
             _passwordStrengthPercent = 0;
             _passwordStrengthLabel = "Fraca";
             _passwordStrengthHint = "Use pelo menos 8 caracteres.";
@@ -93,36 +212,170 @@
             return;
         }
 
-        var score = 0;
-        if (password.Length >= 8) score++;
-        if (password.Any(char.IsLower)) score++;
-        if (password.Any(char.IsUpper)) score++;
-        if (password.Any(char.IsDigit)) score++;
-        if (password.Any(ch => !char.IsLetterOrDigit(ch))) score++;
+        var hasLetter = password.Any(char.IsLetter);
+        var hasDigit = password.Any(char.IsDigit);
+        var hasSpecial = password.Any(ch => !char.IsLetterOrDigit(ch));
+        _passwordRules = new PasswordRulesState(
+            password.Length >= 8,
+            password.Any(char.IsUpper),
+            hasSpecial,
+            hasLetter && hasDigit && hasSpecial);
 
-        if (score <= 2)
+        var satisfiedRules = CountSatisfiedRules(_passwordRules);
+        if (_passwordRules.AllSatisfied)
         {
-            _passwordStrengthPercent = 34;
-            _passwordStrengthLabel = "Fraca";
-            _passwordStrengthHint = "Combine maiusculas, minusculas, numeros e simbolos.";
-            _passwordStrengthTone = "weak";
+            _passwordStrengthPercent = 100;
+            _passwordStrengthLabel = "Forte";
+            _passwordStrengthHint = "Senha pronta para cadastro.";
+            _passwordStrengthTone = "strong";
             return;
         }
 
-        if (score == 3)
+        if (satisfiedRules >= 2)
         {
-            _passwordStrengthPercent = 58;
-            _passwordStrengthLabel = "Media";
-            _passwordStrengthHint = "Boa base. Tente adicionar simbolos e aumentar o tamanho.";
+            _passwordStrengthPercent = 62;
+            _passwordStrengthLabel = "Média";
+            _passwordStrengthHint = BuildMissingRulesHint(_passwordRules);
             _passwordStrengthTone = "medium";
             return;
         }
 
-        _passwordStrengthPercent = password.Length >= 12 ? 100 : 82;
-        _passwordStrengthLabel = password.Length >= 12 ? "Forte" : "Boa";
-        _passwordStrengthHint = password.Length >= 12
-            ? "Excelente. Evite reutilizar em outros servicos." 
-            : "Quase forte. Com 12+ caracteres, fica ainda melhor.";
-        _passwordStrengthTone = password.Length >= 12 ? "strong" : "good";
+        _passwordStrengthPercent = 28;
+        _passwordStrengthLabel = "Fraca";
+        _passwordStrengthHint = BuildMissingRulesHint(_passwordRules);
+        _passwordStrengthTone = "weak";
+    }
+
+    private void TogglePasswordVisibility() => _showPassword = !_showPassword;
+
+    private void ToggleConfirmPasswordVisibility() => _showConfirmPassword = !_showConfirmPassword;
+
+    private void HandlePasswordBlur(FocusEventArgs _)
+    {
+        _passwordFieldFocused = false;
+        UpdateCapsLockWarning(false);
+    }
+
+    private void HandleConfirmPasswordBlur(FocusEventArgs _)
+    {
+        _confirmPasswordFieldFocused = false;
+        UpdateCapsLockWarning(false);
+    }
+
+    private void HandlePasswordKeyUp(KeyboardEventArgs args)
+    {
+        _passwordFieldFocused = true;
+        _confirmPasswordFieldFocused = false;
+        var capsLockLikelyOn = IsCapsLockLikelyOn(args);
+        UpdateCapsLockWarning(capsLockLikelyOn);
+    }
+
+    private void HandleConfirmPasswordKeyUp(KeyboardEventArgs args)
+    {
+        _passwordFieldFocused = false;
+        _confirmPasswordFieldFocused = true;
+        var capsLockLikelyOn = IsCapsLockLikelyOn(args);
+        UpdateCapsLockWarning(capsLockLikelyOn);
+    }
+
+    private void UpdateCapsLockWarning(bool capsLockLikelyOn)
+    {
+        var anyPasswordFieldFocused = _passwordFieldFocused || _confirmPasswordFieldFocused;
+        _showCapsLockWarning = anyPasswordFieldFocused && capsLockLikelyOn;
+    }
+
+    private static bool IsCapsLockLikelyOn(KeyboardEventArgs args)
+    {
+        if (string.IsNullOrWhiteSpace(args.Key) || args.Key.Length != 1)
+        {
+            return false;
+        }
+
+        var keyChar = args.Key[0];
+        if (!char.IsLetter(keyChar))
+        {
+            return false;
+        }
+
+        var keyIsUpper = char.IsUpper(keyChar);
+        return (keyIsUpper && !args.ShiftKey) || (!keyIsUpper && args.ShiftKey);
+    }
+
+    private string GetRuleClass(bool isSatisfied)
+    {
+        if (isSatisfied)
+        {
+            return "password-rule password-rule-pass";
+        }
+
+        return _hasTypedPassword
+            ? "password-rule password-rule-fail"
+            : "password-rule password-rule-pending";
+    }
+
+    private string GetRuleIcon(bool isSatisfied)
+    {
+        if (isSatisfied)
+        {
+            return Icons.Material.Filled.CheckCircle;
+        }
+
+        return _hasTypedPassword
+            ? Icons.Material.Filled.Cancel
+            : Icons.Material.Filled.RadioButtonUnchecked;
+    }
+
+    private static int CountSatisfiedRules(PasswordRulesState rules)
+    {
+        var total = 0;
+        if (rules.HasMinLength) total++;
+        if (rules.HasUppercase) total++;
+        if (rules.HasSpecial) total++;
+        if (rules.HasLetterNumberSpecialCombination) total++;
+        return total;
+    }
+
+    private static string BuildMissingRulesHint(PasswordRulesState rules)
+    {
+        var missingMask = 0;
+        if (!rules.HasMinLength) missingMask |= 1;
+        if (!rules.HasUppercase) missingMask |= 2;
+        if (!rules.HasSpecial) missingMask |= 4;
+        if (!rules.HasLetterNumberSpecialCombination) missingMask |= 8;
+
+        return missingMask switch
+        {
+            0 => "Senha pronta para cadastro.",
+            1 => "Falta: 8 caracteres.",
+            2 => "Falta: letra maiúscula.",
+            3 => "Falta: 8 caracteres, letra maiúscula.",
+            4 => "Falta: caractere especial.",
+            5 => "Falta: 8 caracteres, caractere especial.",
+            6 => "Falta: letra maiúscula, caractere especial.",
+            7 => "Falta: 8 caracteres, letra maiúscula, caractere especial.",
+            8 => "Falta: combinação letra + número + especial.",
+            9 => "Falta: 8 caracteres, combinação letra + número + especial.",
+            10 => "Falta: letra maiúscula, combinação letra + número + especial.",
+            11 => "Falta: 8 caracteres, letra maiúscula, combinação letra + número + especial.",
+            12 => "Falta: caractere especial, combinação letra + número + especial.",
+            13 => "Falta: 8 caracteres, caractere especial, combinação letra + número + especial.",
+            14 => "Falta: letra maiúscula, caractere especial, combinação letra + número + especial.",
+            _ => "Falta: 8 caracteres, letra maiúscula, caractere especial, combinação letra + número + especial."
+        };
+    }
+
+    private readonly record struct PasswordRulesState(
+        bool HasMinLength,
+        bool HasUppercase,
+        bool HasSpecial,
+        bool HasLetterNumberSpecialCombination)
+    {
+        public static PasswordRulesState Empty => new(false, false, false, false);
+
+        public bool AllSatisfied =>
+            HasMinLength &&
+            HasUppercase &&
+            HasSpecial &&
+            HasLetterNumberSpecialCombination;
     }
 }
