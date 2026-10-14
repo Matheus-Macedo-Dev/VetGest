@@ -70,12 +70,18 @@ public sealed class CustomAuthenticationStateProvider(IBrowserTokenStore tokenSt
             }
 
             var claims = root.EnumerateObject()
-                .SelectMany(property => property.Name switch
+                .SelectMany(property =>
                 {
-                    "role" or "roles" => ReadStringValues(property.Value)
-                        .Select(value => new Claim(ClaimTypes.Role, value)),
-                    _ => ReadStringValues(property.Value)
-                        .Select(value => new Claim(property.Name, value))
+                    var values = ReadStringValues(property.Value).ToList();
+                    var isRoleClaim = property.Name is
+                        "role" or "roles" or
+                        ClaimTypes.Role or
+                        "http://schemas.microsoft.com/ws/2008/06/identity/claims/role" or
+                        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role";
+
+                    return isRoleClaim
+                        ? values.Select(value => new Claim(ClaimTypes.Role, value))
+                        : values.Select(value => new Claim(property.Name, value));
                 })
                 .ToList();
 
