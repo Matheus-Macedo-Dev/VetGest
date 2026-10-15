@@ -1,0 +1,56 @@
+@inject AdminVetService AdminVetService
+
+<MudDialog>
+    <DialogContent>
+        <EditForm Model="_form" OnValidSubmit="SubmitAsync" id="create-vet-form">
+            <DataAnnotationsValidator />
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">Confira o CRMV na <a href="https://app.cfmv.gov.br/paginas/busca" target="_blank" rel="noopener noreferrer">busca oficial do CFMV</a> (nome, número, UF e situação ativa) antes de criar a conta. O VetGest não valida o CRMV automaticamente.</MudAlert>
+            <MudTextField @bind-Value="_form.FullName" For="@(() => _form.FullName)" Label="Nome completo" Required="true" />
+            <MudTextField @bind-Value="_form.Email" For="@(() => _form.Email)" Label="E-mail" InputType="InputType.Email" Required="true" />
+            <MudTextField @bind-Value="_form.CrmvNumber" For="@(() => _form.CrmvNumber)" Label="Número do CRMV" Required="true" />
+            <MudSelect T="string" @bind-Value="_form.CrmvState" Label="UF do CRMV" Required="true">
+                @foreach (var uf in AdminVetCatalog.Ufs)
+                {
+                    <MudSelectItem Value="@uf">@uf</MudSelectItem>
+                }
+            </MudSelect>
+            <MudCheckBox T="bool" @bind-Value="_confirmedOnCfmv" Label="Conferi este CRMV no registro do CFMV" />
+            @if (_errors is not null)
+            {
+                <MudAlert Severity="Severity.Error">@foreach (var message in _errors) { <div>@message</div> }</MudAlert>
+            }
+        </EditForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Submit" form="create-vet-form" Disabled="@(_isSaving || !_confirmedOnCfmv)" StartIcon="@Icons.Material.Filled.PersonAdd">@(_isSaving ? "Criando..." : "Criar veterinário")</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private readonly CreateVetRequest _form = new();
+    private IEnumerable<string>? _errors;
+    private bool _isSaving;
+    private bool _confirmedOnCfmv;
+
+    private async Task SubmitAsync()
+    {
+        _isSaving = true;
+        _errors = null;
+        var result = await AdminVetService.CreateAsync(_form);
+        _isSaving = false;
+
+        if (!result.Succeeded || result.Data is null)
+        {
+            _errors = result.ValidationErrors?.SelectMany(item => item.Value).Distinct()
+                ?? [result.Error ?? "Não foi possível criar o veterinário."];
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(result.Data));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

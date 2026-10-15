@@ -12,5 +12,7 @@ public interface IVetConnectionRepository
     Task<IReadOnlyList<VetConnection>> ListByUserAsync(string userId, CancellationToken cancellationToken);
     Task<Guid?> GetPetIdByPregnancyIdAsync(Guid pregnancyId, CancellationToken cancellationToken);
     Task<bool> CanUserAccessPregnancyAsync(Guid pregnancyId, string userId, CancellationToken cancellationToken);
+    Task<int> CountOpenCodesAsync(string vetUserId, DateTime nowUtc, CancellationToken cancellationToken);
+    Task<bool> HasActiveConnectionAsync(string vetUserId, Guid pregnancyId, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

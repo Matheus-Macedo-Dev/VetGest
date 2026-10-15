@@ -1,5 +1,5 @@
-@page "/pets/{PetId:guid}/pregnancy/new"
-@attribute [Authorize]
+﻿@page "/pets/{PetId:guid}/pregnancy/new"
+@attribute [Authorize(Roles = "Tutor")]
 @inject PetService PetService
 @inject PregnancyService PregnancyService
 @inject NavigationManager Navigation

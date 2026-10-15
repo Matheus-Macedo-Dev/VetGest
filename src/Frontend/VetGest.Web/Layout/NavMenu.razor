@@ -10,27 +10,7 @@
 
 <div class="@NavMenuCssClass nav-scrollable">
     <nav aria-label="Navegação principal">
-        <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="CloseNavMenu">
-            <MudIcon Icon="@Icons.Material.Filled.Today" aria-hidden="true" /> Hoje
-        </NavLink>
-        <NavLink class="nav-link" href="diary" @onclick="CloseNavMenu">
-            <MudIcon Icon="@Icons.Material.Filled.MenuBook" aria-hidden="true" /> Diário
-        </NavLink>
-        <NavLink class="nav-link" href="exams" @onclick="CloseNavMenu">
-            <MudIcon Icon="@Icons.Material.Filled.EventNote" aria-hidden="true" /> Exames e lembretes
-        </NavLink>
-        <NavLink class="nav-link" href="vet-connection" @onclick="CloseNavMenu">
-            <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" /> Conexão veterinária
-        </NavLink>
-        <AuthorizeView>
-            <Authorized>
-                <NavLink class="nav-link" href="pets" @onclick="CloseNavMenu">
-                    <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" /> Meus pets
-                </NavLink>
-                <button class="nav-link nav-button" type="button" @onclick="LogoutAsync">
-                    <MudIcon Icon="@Icons.Material.Filled.Logout" aria-hidden="true" /> Sair
-                </button>
-            </Authorized>
+        <AuthorizeView Context="anonymousContext">
             <NotAuthorized>
                 <NavLink class="nav-link" href="login" @onclick="CloseNavMenu">
                     <MudIcon Icon="@Icons.Material.Filled.Login" aria-hidden="true" /> Entrar
@@ -39,6 +19,47 @@
                     <MudIcon Icon="@Icons.Material.Filled.PersonAdd" aria-hidden="true" /> Criar conta
                 </NavLink>
             </NotAuthorized>
+            <Authorized>
+                <AuthorizeView Roles="Admin" Context="adminContext">
+                    <NavLink class="nav-link" href="admin/vets" @onclick="CloseNavMenu">
+                        <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" aria-hidden="true" /> Veterinários
+                    </NavLink>
+                </AuthorizeView>
+                <AuthorizeView Roles="Vet" Context="vetContext">
+                    <NavLink class="nav-link" href="vet-connection" @onclick="CloseNavMenu">
+                        <MudIcon Icon="@Icons.Material.Filled.Link" aria-hidden="true" /> Conexão com tutores
+                    </NavLink>
+                    <NavLink class="nav-link" href="vet/patients" @onclick="CloseNavMenu">
+                        <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" /> Pacientes
+                    </NavLink>
+                    <NavLink class="nav-link" href="chat" @onclick="CloseNavMenu">
+                        <MudIcon Icon="@Icons.Material.Filled.Chat" aria-hidden="true" /> Chat
+                    </NavLink>
+                </AuthorizeView>
+                <AuthorizeView Roles="Tutor" Context="tutorContext">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="CloseNavMenu">
+                        <MudIcon Icon="@Icons.Material.Filled.Today" aria-hidden="true" /> Hoje
+                    </NavLink>
+                    <NavLink class="nav-link" href="pets" @onclick="CloseNavMenu">
+                        <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" /> Meus pets
+                    </NavLink>
+                    <NavLink class="nav-link" href="diary" @onclick="CloseNavMenu">
+                        <MudIcon Icon="@Icons.Material.Filled.MenuBook" aria-hidden="true" /> Diário
+                    </NavLink>
+                    <NavLink class="nav-link" href="exams" @onclick="CloseNavMenu">
+                        <MudIcon Icon="@Icons.Material.Filled.EventNote" aria-hidden="true" /> Exames e lembretes
+                    </NavLink>
+                    <NavLink class="nav-link" href="vet-connection" @onclick="CloseNavMenu">
+                        <MudIcon Icon="@Icons.Material.Filled.Link" aria-hidden="true" /> Conexão veterinária
+                    </NavLink>
+                    <NavLink class="nav-link" href="chat" @onclick="CloseNavMenu">
+                        <MudIcon Icon="@Icons.Material.Filled.Chat" aria-hidden="true" /> Chat
+                    </NavLink>
+                </AuthorizeView>
+                <button class="nav-link nav-button" type="button" @onclick="LogoutAsync">
+                    <MudIcon Icon="@Icons.Material.Filled.Logout" aria-hidden="true" /> Sair
+                </button>
+            </Authorized>
         </AuthorizeView>
     </nav>
 </div>

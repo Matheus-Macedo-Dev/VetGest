@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using VetGest.API.Authentication;
+using System.Threading.RateLimiting;
+using VetGest.API.Admin;
 using VetGest.API.Authorization;
 using VetGest.Infrastructure;
 using VetGest.Infrastructure.Identity;
@@ -58,6 +60,14 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IVetConnectionRealtimePublisher, VetConnectionRealtimePublisher>();
 builder.Services.AddScoped<RegistrationValidator>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IAdminVetService, AdminVetService>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth-sensitive", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+});
 builder.Services.AddScoped<IPetService, PetService>();
 builder.Services.AddScoped<PregnancyCalculationPolicy>();
 builder.Services.AddScoped<IPregnancyService, PregnancyService>();
@@ -73,9 +83,11 @@ builder.Services.AddSingleton(new VetConnectionServiceOptions
     InvitationTtl = TimeSpan.FromDays(invitationTtlDays),
     MaxInvitationTtl = TimeSpan.FromDays(maxInvitationTtlDays)
 });
+builder.Services.AddScoped<IVetPatientService, VetPatientService>();
 builder.Services.AddScoped<IVetConnectionService>(serviceProvider => new VetConnectionService(
     serviceProvider.GetRequiredService<IVetConnectionRepository>(),
-    serviceProvider.GetRequiredService<VetConnectionServiceOptions>()));
+    serviceProvider.GetRequiredService<VetConnectionServiceOptions>(),
+    serviceProvider.GetRequiredService<IUserDirectory>()));
 
 // Register Token Service
 var jwtSettings = configuration.GetSection("Jwt");
@@ -122,22 +134,32 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero // No clock skew tolerance
     };
 
+    // Browser WebSocket/SSE SignalR transports cannot send an Authorization header, so hubs accept the token from the query string.
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                context.Token = accessToken;
+
+            return Task.CompletedTask;
+        }
+    };
+
     // Log JWT bearer events in development
     if (builder.Environment.IsDevelopment())
     {
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context =>
+        options.Events.OnAuthenticationFailed = context =>
             {
                 Console.WriteLine($"Authentication failed: {context.Exception.Message}");
                 return Task.CompletedTask;
-            },
-            OnTokenValidated = context =>
+            };
+        options.Events.OnTokenValidated = context =>
             {
                 Console.WriteLine($"Token validated for user: {context.Principal?.FindFirst("email")?.Value}");
                 return Task.CompletedTask;
-            }
-        };
+            };
     }
 });
 
@@ -164,10 +186,37 @@ var app = builder.Build();
 
 if (!app.Environment.IsEnvironment("Testing"))
 {
-    using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<VetGestDbContext>();
-    await dbContext.Database.MigrateAsync();
-    await RoleSeeder.EnsureRolesAsync(scope.ServiceProvider);
+    // Migrations are opt-in outside Development so a cold start never blocks the listener on the database.
+    if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+    {
+        using var scope = app.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<VetGestDbContext>();
+        await dbContext.Database.MigrateAsync();
+    }
+
+    // Seed roles after Kestrel is listening so port 8080 opens immediately; retry while the database wakes up.
+    app.Lifetime.ApplicationStarted.Register(() => _ = Task.Run(async () =>
+    {
+        for (var attempt = 1; attempt <= 5; attempt++)
+        {
+            try
+            {
+                using var scope = app.Services.CreateScope();
+                await RoleSeeder.EnsureRolesAsync(scope.ServiceProvider);
+                await AdminSeeder.EnsureAdminAsync(scope.ServiceProvider);
+                return;
+            }
+            catch (Exception ex) when (attempt < 5)
+            {
+                app.Logger.LogWarning(ex, "Role seeding failed (attempt {Attempt}); retrying.", attempt);
+                await Task.Delay(TimeSpan.FromSeconds(5 * attempt));
+            }
+            catch (Exception ex)
+            {
+                app.Logger.LogError(ex, "Role seeding failed after {Attempt} attempts.", attempt);
+            }
+        }
+    }));
 }
 
 // Configure the HTTP request pipeline
@@ -186,6 +235,7 @@ app.UseCors("AllowBlazorClient");
 
 // Use authentication and authorization middleware in correct order
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
@@ -195,6 +245,7 @@ app.MapHealthChecks("/health");
 
 // Map SignalR hubs (placeholder)
 app.MapHub<VetConnectionsHub>("/hubs/vet-connections");
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();
 

@@ -42,6 +42,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IPregnancyRepository, PregnancyRepository>();
         services.AddScoped<IPregnancyDiaryRepository, PregnancyDiaryRepository>();
         services.AddScoped<IVetConnectionRepository, VetConnectionRepository>();
+        services.AddScoped<IUserDirectory, IdentityUserDirectory>();
         services.AddScoped<IAlertRuleRepository, AlertRuleRepository>();
 
         return services;

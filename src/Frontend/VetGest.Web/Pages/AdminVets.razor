@@ -1,0 +1,141 @@
+﻿@page "/admin/vets"
+@attribute [Authorize(Roles = "Admin")]
+@inject AdminVetService AdminVetService
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject IJSRuntime JS
+
+<PageTitle>Veterinários | VetGest</PageTitle>
+
+<section class="vet-connection-page" aria-labelledby="admin-vets-title">
+    <div class="page-heading">
+        <div><span class="section-kicker">Administração</span><h1 id="admin-vets-title">Veterinários</h1><p>Contas de veterinários são criadas aqui, após conferir o CRMV no CFMV.</p></div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenCreateAsync">Novo veterinário</MudButton>
+    </div>
+
+    @if (_setupUrl is not null)
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-4">
+            <strong>Link de definição de senha para @_setupEmail</strong>
+            <p>Envie este link ao veterinário por um canal seguro. Ele é de uso único e expira em 24 horas.</p>
+            <MudTextField Value="_setupUrl" ReadOnly="true" Label="Link" Variant="Variant.Outlined" />
+            <MudButton Variant="Variant.Outlined" OnClick="CopyAsync" StartIcon="@Icons.Material.Filled.ContentCopy">Copiar link</MudButton>
+        </MudAlert>
+    }
+
+    @if (_isLoading)
+    {
+        <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando veterinários...</span></div>
+    }
+    else if (_error is not null)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@(_offline ? Icons.Material.Filled.CloudOff : Icons.Material.Filled.ErrorOutline)" Size="Size.Large" /><div><strong>@(_offline ? "Sem conexão" : "Não foi possível carregar")</strong><span>@_error</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="LoadAsync">Tentar novamente</MudButton></div></div>
+    }
+    else if (_vets.Count == 0)
+    {
+        <div class="state-panel"><MudIcon Icon="@Icons.Material.Filled.PersonSearch" Size="Size.Large" /><span>Nenhum veterinário cadastrado ainda.</span></div>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Hover="true">
+            <thead><tr><th>Nome</th><th>E-mail</th><th>CRMV</th><th>Situação</th><th>Ações</th></tr></thead>
+            <tbody>
+                @foreach (var vet in _vets)
+                {
+                    <tr>
+                        <td>@vet.FullName</td>
+                        <td>@vet.Email</td>
+                        <td>@vet.Crmv</td>
+                        <td>@AdminVetCatalog.StatusLabel(vet)</td>
+                        <td>
+                            <MudTooltip Text="Ver dados">
+                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" aria-label="@($"Ver dados de {vet.FullName}")" OnClick="() => OpenDetailsAsync(vet)" />
+                            </MudTooltip>
+                            <MudTooltip Text="@(vet.IsActive ? "Desativar conta" : "Reativar conta")">
+                                <MudIconButton Icon="@(vet.IsActive ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)" Color="@(vet.IsActive ? Color.Error : Color.Success)" Size="Size.Small" Disabled="@_busyIds.Contains(vet.UserId)" aria-label="@((vet.IsActive ? "Desativar " : "Reativar ") + vet.FullName)" OnClick="() => ToggleActiveAsync(vet)" />
+                            </MudTooltip>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</section>
+
+@code {
+    private readonly HashSet<string> _busyIds = [];
+    private List<AdminVetDto> _vets = [];
+    private string? _error;
+    private string? _setupUrl;
+    private string? _setupEmail;
+    private bool _isLoading = true;
+    private bool _offline;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        var result = await AdminVetService.ListAsync();
+        _isLoading = false;
+        if (!result.Succeeded)
+        {
+            _offline = result.IsOffline;
+            _error = result.IsUnauthorized ? "Sessão expirada ou sem permissão de administrador." : result.Error;
+            return;
+        }
+
+        _vets = result.Data?.ToList() ?? [];
+    }
+
+    private async Task OpenCreateAsync()
+    {
+        var dialog = await DialogService.ShowAsync<CreateVetDialog>("Novo veterinário", new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: CreatedVetDto created })
+        {
+            _setupEmail = created.Setup.Email;
+            var relative = $"definir-senha?email={Uri.EscapeDataString(created.Setup.Email)}&token={Uri.EscapeDataString(created.Setup.Token)}";
+            _setupUrl = Navigation.ToAbsoluteUri(relative).ToString();
+            await LoadAsync();
+        }
+    }
+
+    private Task OpenDetailsAsync(AdminVetDto vet) =>
+        DialogService.ShowAsync<VetDetailsDialog>(
+            "Dados do veterinário",
+            new DialogParameters<VetDetailsDialog> { { dialog => dialog.Vet, vet } },
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
+
+    private async Task ToggleActiveAsync(AdminVetDto vet)
+    {
+        var disabling = vet.IsActive;
+        var confirmed = await DialogService.ShowMessageBox(
+            disabling ? "Desativar conta" : "Reativar conta",
+            disabling
+                ? $"{vet.FullName} não conseguirá mais entrar no VetGest. Deseja desativar?"
+                : $"{vet.FullName} poderá voltar a entrar no VetGest. Deseja reativar?",
+            yesText: disabling ? "Desativar" : "Reativar",
+            cancelText: "Cancelar");
+        if (confirmed != true)
+            return;
+
+        _busyIds.Add(vet.UserId);
+        var result = await AdminVetService.SetActiveAsync(vet.UserId, !disabling);
+        _busyIds.Remove(vet.UserId);
+        if (!result.Succeeded)
+        {
+            _error = result.Error;
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task CopyAsync()
+    {
+        if (_setupUrl is not null)
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", _setupUrl);
+    }
+}

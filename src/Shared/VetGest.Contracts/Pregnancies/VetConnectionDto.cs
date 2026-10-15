@@ -11,4 +11,7 @@ public sealed class VetConnectionDto
     public DateTime InvitationExpiresAt { get; set; }
     public DateTime? AcceptedAt { get; set; }
     public string Status { get; set; } = string.Empty;
+    public string? VetName { get; set; }
+    public string? TutorName { get; set; }
+    public string? PetName { get; set; }
 }

@@ -1,5 +1,5 @@
-@page "/pets/new"
-@attribute [Authorize]
+﻿@page "/pets/new"
+@attribute [Authorize(Roles = "Tutor")]
 @inject PetService PetService
 @inject NavigationManager Navigation
 

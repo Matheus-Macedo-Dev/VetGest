@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using VetGest.Contracts.Chat;
 using VetGest.Contracts.Pregnancies;
 
 namespace VetGest.API.Hubs;
@@ -11,14 +12,23 @@ public interface IVetConnectionRealtimePublisher
 public sealed class VetConnectionRealtimePublisher : IVetConnectionRealtimePublisher
 {
     private readonly IHubContext<VetConnectionsHub> _hubContext;
+    private readonly IHubContext<ChatHub> _chatHubContext;
 
-    public VetConnectionRealtimePublisher(IHubContext<VetConnectionsHub> hubContext)
+    public VetConnectionRealtimePublisher(IHubContext<VetConnectionsHub> hubContext, IHubContext<ChatHub> chatHubContext)
     {
         _hubContext = hubContext;
+        _chatHubContext = chatHubContext;
     }
 
-    public Task PublishConnectionUpdatedAsync(VetConnectionDto connection, CancellationToken cancellationToken)
+    public async Task PublishConnectionUpdatedAsync(VetConnectionDto connection, CancellationToken cancellationToken)
     {
+        if (connection.PregnancyId == Guid.Empty)
+            return;
+
+        if (connection.Status == "Revoked")
+            await _chatHubContext.Clients.Group(ChatHubGroups.Connection(connection.Id))
+                .SendAsync(ChatHubMethods.ChatClosed, connection.Id, cancellationToken);
+
         var message = new VetConnectionUpdatedEvent
         {
             ConnectionId = connection.Id,
@@ -28,7 +38,7 @@ public sealed class VetConnectionRealtimePublisher : IVetConnectionRealtimePubli
             OccurredAtUtc = DateTime.UtcNow
         };
 
-        return _hubContext.Clients
+        await _hubContext.Clients
             .Group(VetConnectionHubGroups.Pregnancy(connection.PregnancyId))
             .SendAsync(VetConnectionHubMethods.ConnectionUpdated, message, cancellationToken);
     }

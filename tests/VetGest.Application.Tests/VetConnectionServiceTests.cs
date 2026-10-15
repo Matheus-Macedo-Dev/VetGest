@@ -148,6 +148,95 @@ public sealed class VetConnectionServiceTests
             repository.Connection.Id, "other-user", CancellationToken.None));
     }
 
+    [Fact]
+    public async Task Vet_creates_open_code_without_pet_or_tutor_ids()
+    {
+        var repository = new FakeRepository(null, "tutor-1");
+        var service = new VetConnectionService(repository);
+
+        var result = await service.CreateCodeAsync("vet-1", CancellationToken.None);
+
+        Assert.Equal(VetConnectionStatus.Pending.Value, result.Status);
+        Assert.Equal("vet-1", result.VetUserId);
+        Assert.Equal(string.Empty, result.TutorUserId);
+        Assert.Equal(12, result.InvitationCode.Length);
+        Assert.Equal("vet-1", repository.LastOwnerId);
+    }
+
+    [Fact]
+    public async Task Rejects_open_code_when_vet_has_too_many_open_codes()
+    {
+        var repository = new FakeRepository(null, "tutor-1") { OpenCodes = 5 };
+        var service = new VetConnectionService(repository);
+
+        await Assert.ThrowsAsync<VetInvitationConflictException>(() => service.CreateCodeAsync("vet-1", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Tutor_redeems_open_code_for_an_owned_active_pregnancy()
+    {
+        var pregnancy = CreatePregnancy();
+        var repository = new FakeRepository(pregnancy, "tutor-1");
+        var service = new VetConnectionService(repository);
+        var code = (await service.CreateCodeAsync("vet-1", CancellationToken.None)).InvitationCode;
+
+        var result = await service.AcceptInvitationAsync(
+            new AcceptVetInvitationRequest { InvitationCode = code.ToLowerInvariant(), PetId = pregnancy.PetId, PregnancyId = pregnancy.Id },
+            "tutor-1",
+            CancellationToken.None);
+
+        Assert.Equal(VetConnectionStatus.Active.Value, result.Status);
+        Assert.Equal("tutor-1", result.TutorUserId);
+        Assert.Equal(pregnancy.Id, result.PregnancyId);
+        Assert.Equal(pregnancy.PetId, result.PetId);
+    }
+
+    [Fact]
+    public async Task Open_code_rejects_unowned_pregnancy_missing_selection_and_reuse()
+    {
+        var pregnancy = CreatePregnancy();
+        var repository = new FakeRepository(pregnancy, "tutor-1");
+        var service = new VetConnectionService(repository);
+        var code = (await service.CreateCodeAsync("vet-1", CancellationToken.None)).InvitationCode;
+
+        await Assert.ThrowsAsync<VetConnectionValidationException>(() => service.AcceptInvitationAsync(
+            new AcceptVetInvitationRequest { InvitationCode = code }, "tutor-1", CancellationToken.None));
+
+        await Assert.ThrowsAsync<VetConnectionNotFoundException>(() => service.AcceptInvitationAsync(
+            new AcceptVetInvitationRequest { InvitationCode = code, PetId = pregnancy.PetId, PregnancyId = pregnancy.Id },
+            "intruder",
+            CancellationToken.None));
+
+        await service.AcceptInvitationAsync(
+            new AcceptVetInvitationRequest { InvitationCode = code, PetId = pregnancy.PetId, PregnancyId = pregnancy.Id },
+            "tutor-1",
+            CancellationToken.None);
+
+        await Assert.ThrowsAsync<VetConnectionNotFoundException>(() => service.AcceptInvitationAsync(
+            new AcceptVetInvitationRequest { InvitationCode = code, PetId = pregnancy.PetId, PregnancyId = pregnancy.Id },
+            "tutor-2",
+            CancellationToken.None));
+
+        await Assert.ThrowsAsync<VetInvitationConflictException>(() => service.AcceptInvitationAsync(
+            new AcceptVetInvitationRequest { InvitationCode = code, PetId = pregnancy.PetId, PregnancyId = pregnancy.Id },
+            "tutor-1",
+            CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Open_code_rejects_when_vet_is_already_connected_to_the_pregnancy()
+    {
+        var pregnancy = CreatePregnancy();
+        var repository = new FakeRepository(pregnancy, "tutor-1") { ActiveConnectionExists = true };
+        var service = new VetConnectionService(repository);
+        var code = (await service.CreateCodeAsync("vet-1", CancellationToken.None)).InvitationCode;
+
+        await Assert.ThrowsAsync<VetInvitationConflictException>(() => service.AcceptInvitationAsync(
+            new AcceptVetInvitationRequest { InvitationCode = code, PetId = pregnancy.PetId, PregnancyId = pregnancy.Id },
+            "tutor-1",
+            CancellationToken.None));
+    }
+
     private static Pregnancy CreatePregnancy()
     {
         return new Pregnancy(
@@ -245,6 +334,16 @@ public sealed class VetConnectionServiceTests
 
             return Task.FromResult(isOwner || isLinkedVet);
         }
+
+        public int OpenCodes { get; set; }
+
+        public bool ActiveConnectionExists { get; set; }
+
+        public Task<int> CountOpenCodesAsync(string vetUserId, DateTime nowUtc, CancellationToken cancellationToken) =>
+            Task.FromResult(OpenCodes);
+
+        public Task<bool> HasActiveConnectionAsync(string vetUserId, Guid pregnancyId, CancellationToken cancellationToken) =>
+            Task.FromResult(ActiveConnectionExists);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }

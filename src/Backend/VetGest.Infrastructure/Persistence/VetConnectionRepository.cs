@@ -31,7 +31,7 @@ public sealed class VetConnectionRepository : IVetConnectionRepository
         Guid pregnancyId,
         string ownerId,
         CancellationToken cancellationToken) =>
-        _dbContext.Pregnancies.SingleOrDefaultAsync(
+        _dbContext.Pregnancies.Include(pregnancy => pregnancy.Pet).SingleOrDefaultAsync(
             pregnancy => pregnancy.Id == pregnancyId
                 && pregnancy.PetId == petId
                 && EF.Property<string>(pregnancy, "OwnerId") == ownerId,
@@ -39,20 +39,20 @@ public sealed class VetConnectionRepository : IVetConnectionRepository
 
     public Task<VetConnection?> GetByInvitationCodeAsync(string invitationCode, CancellationToken cancellationToken) =>
         _dbContext.VetConnections
-            .Include(connection => connection.Pregnancy)
+            .Include(connection => connection.Pregnancy!).ThenInclude(pregnancy => pregnancy.Pet)
             .SingleOrDefaultAsync(
             connection => connection.InvitationCode == invitationCode.ToUpperInvariant(),
             cancellationToken);
 
     public Task<VetConnection?> GetByIdAsync(Guid connectionId, CancellationToken cancellationToken) =>
         _dbContext.VetConnections
-            .Include(connection => connection.Pregnancy)
+            .Include(connection => connection.Pregnancy!).ThenInclude(pregnancy => pregnancy.Pet)
             .SingleOrDefaultAsync(connection => connection.Id == connectionId, cancellationToken);
 
     public async Task<IReadOnlyList<VetConnection>> ListByUserAsync(string userId, CancellationToken cancellationToken)
     {
         return await _dbContext.VetConnections
-            .Include(connection => connection.Pregnancy)
+            .Include(connection => connection.Pregnancy!).ThenInclude(pregnancy => pregnancy.Pet)
             .Where(connection => connection.VetUserId == userId || connection.TutorUserId == userId)
             .OrderByDescending(connection => connection.AcceptedAt ?? connection.InvitationExpiresAt)
             .ToArrayAsync(cancellationToken);
@@ -80,6 +80,20 @@ public sealed class VetConnectionRepository : IVetConnectionRepository
                 && connection.Status == VetConnectionStatus.Active.Value,
             cancellationToken);
     }
+
+    public Task<int> CountOpenCodesAsync(string vetUserId, DateTime nowUtc, CancellationToken cancellationToken) =>
+        _dbContext.VetConnections.CountAsync(
+            connection => connection.VetUserId == vetUserId
+                && connection.Status == VetConnectionStatus.Pending.Value
+                && connection.InvitationExpiresAt > nowUtc,
+            cancellationToken);
+
+    public Task<bool> HasActiveConnectionAsync(string vetUserId, Guid pregnancyId, CancellationToken cancellationToken) =>
+        _dbContext.VetConnections.AnyAsync(
+            connection => connection.VetUserId == vetUserId
+                && connection.PregnancyId == pregnancyId
+                && connection.Status == VetConnectionStatus.Active.Value,
+            cancellationToken);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         _dbContext.SaveChangesAsync(cancellationToken);

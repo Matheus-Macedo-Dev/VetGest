@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components.Web;
+﻿using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.AspNetCore.Components.Authorization;
 using MudBlazor.Services;
@@ -39,6 +39,9 @@ builder.Services.AddScoped<AlertService>();
 builder.Services.AddScoped<ExaminationService>();
 builder.Services.AddScoped<DiaryService>();
 builder.Services.AddScoped<VetConnectionService>();
+builder.Services.AddScoped<AdminVetService>();
+builder.Services.AddScoped<VetPatientService>();
+builder.Services.AddScoped<ChatRealtimeService>();
 builder.Services.AddScoped<VetConnectionRealtimeService>();
 builder.Services.AddScoped<LiveTodayService>();
 builder.Services.AddScoped<ITodayService, LiveTodayService>();

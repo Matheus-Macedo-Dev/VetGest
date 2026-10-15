@@ -1,5 +1,4 @@
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.SignalR.Client;
+﻿using Microsoft.AspNetCore.SignalR.Client;
 using VetGest.Contracts.Pregnancies;
 using VetGest.Web.Services.Auth;
 
@@ -7,13 +6,13 @@ namespace VetGest.Web.Services.Realtime;
 
 public sealed class VetConnectionRealtimeService : IAsyncDisposable
 {
-    private readonly NavigationManager _navigation;
+    private readonly HttpClient _httpClient;
     private readonly IBrowserTokenStore _tokenStore;
     private HubConnection? _connection;
 
-    public VetConnectionRealtimeService(NavigationManager navigation, IBrowserTokenStore tokenStore)
+    public VetConnectionRealtimeService(HttpClient httpClient, IBrowserTokenStore tokenStore)
     {
-        _navigation = navigation;
+        _httpClient = httpClient;
         _tokenStore = tokenStore;
     }
 
@@ -28,7 +27,7 @@ public sealed class VetConnectionRealtimeService : IAsyncDisposable
             await _connection.DisposeAsync();
 
         _connection = new HubConnectionBuilder()
-            .WithUrl(_navigation.ToAbsoluteUri("hubs/vet-connections"), options =>
+            .WithUrl(new Uri(_httpClient.BaseAddress!, "hubs/vet-connections"), options =>
             {
                 options.AccessTokenProvider = () => _tokenStore.GetAsync().AsTask();
             })

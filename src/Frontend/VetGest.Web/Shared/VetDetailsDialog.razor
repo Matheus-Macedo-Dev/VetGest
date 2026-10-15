@@ -1,0 +1,65 @@
+@inject AdminVetService AdminVetService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField Value="Vet.FullName" Label="Nome completo" ReadOnly="true" />
+        <MudTextField Value="Vet.Email" Label="E-mail" ReadOnly="true" />
+        <MudTextField Value="Vet.CrmvNumber" Label="Número do CRMV" ReadOnly="true" />
+        <MudTextField Value="Vet.CrmvState" Label="UF do CRMV" ReadOnly="true" />
+        <MudTextField Value="@AdminVetCatalog.StatusLabel(Vet)" Label="Situação da conta" ReadOnly="true" />
+        <MudTextField Value="@Vet.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")" Label="Conta criada em" ReadOnly="true" />
+        <MudTextField Value="@(Vet.CrmvCheckedAt is null ? "—" : Vet.CrmvCheckedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))" Label="CRMV conferido no CFMV em" ReadOnly="true" />
+
+        @if (_setupUrl is not null)
+        {
+            <MudAlert Severity="Severity.Success" Class="mt-2">
+                <p>Link de uso único (expira em 24 horas). Envie ao veterinário por um canal seguro.</p>
+                <MudTextField Value="_setupUrl" ReadOnly="true" Label="Link de definição de senha" Variant="Variant.Outlined" />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="CopyAsync" StartIcon="@Icons.Material.Filled.ContentCopy">Copiar link</MudButton>
+            </MudAlert>
+        }
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-2">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="IssueLinkAsync" Disabled="_isBusy" StartIcon="@Icons.Material.Filled.LockReset">Gerar novo link de senha</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Close">Fechar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public AdminVetDto Vet { get; set; } = new();
+
+    private string? _setupUrl;
+    private string? _error;
+    private bool _isBusy;
+
+    private async Task IssueLinkAsync()
+    {
+        _isBusy = true;
+        _error = null;
+        var result = await AdminVetService.IssueSetupLinkAsync(Vet.UserId);
+        _isBusy = false;
+        if (!result.Succeeded || result.Data is null)
+        {
+            _error = result.Error ?? "Não foi possível gerar o link.";
+            return;
+        }
+
+        var relative = $"definir-senha?email={Uri.EscapeDataString(result.Data.Email)}&token={Uri.EscapeDataString(result.Data.Token)}";
+        _setupUrl = Navigation.ToAbsoluteUri(relative).ToString();
+    }
+
+    private async Task CopyAsync()
+    {
+        if (_setupUrl is not null)
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", _setupUrl);
+    }
+
+    private void Close() => MudDialog.Close();
+}

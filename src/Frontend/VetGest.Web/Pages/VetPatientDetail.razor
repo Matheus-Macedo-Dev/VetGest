@@ -1,0 +1,82 @@
+@page "/vet/patients/{ConnectionId:guid}"
+@attribute [Authorize(Roles = "Vet")]
+@inject VetPatientService VetPatientService
+
+<PageTitle>Paciente | VetGest</PageTitle>
+
+<section class="diary-page" aria-labelledby="patient-title">
+    @if (_isLoading)
+    {
+        <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando registros...</span></div>
+    }
+    else if (_notFound)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@Icons.Material.Filled.LinkOff" Size="Size.Large" /><div><strong>Conexão indisponível</strong><span>Este paciente não está mais compartilhado com você ou a conexão foi encerrada.</span><MudButton Href="vet/patients" Variant="Variant.Outlined" Color="Color.Primary">Voltar aos pacientes</MudButton></div></div>
+    }
+    else if (_error is not null)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@(_offline ? Icons.Material.Filled.CloudOff : Icons.Material.Filled.ErrorOutline)" Size="Size.Large" /><div><strong>@(_offline ? "Sem conexão" : "Não foi possível carregar")</strong><span>@_error</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" @onclick="LoadAsync">Tentar novamente</MudButton></div></div>
+    }
+    else if (_detail is not null)
+    {
+        var patient = _detail.Patient;
+        <div class="page-heading"><div><span class="section-kicker">Registros do tutor · somente leitura</span><h1 id="patient-title">@patient.PetName</h1><p>Tutor: @patient.TutorName · Parto estimado: @patient.EstimatedDueDate.ToString("dd/MM/yyyy")</p></div><div><MudButton Href="vet/patients" Variant="Variant.Outlined" Color="Color.Primary">Pacientes</MudButton> <MudButton Href="chat" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Chat">Chat</MudButton></div></div>
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">@_detail.Notice</MudAlert>
+
+        @if (_detail.Diary.Count == 0)
+        {
+            <div class="state-panel"><MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Large" /><span>O tutor ainda não registrou observações no diário.</span></div>
+        }
+        else
+        {
+            <div class="diary-entries" role="list">
+                @foreach (var entry in _detail.Diary.OrderByDescending(item => item.EntryDate))
+                {
+                    <article class="connection-item" role="listitem">
+                        <div>
+                            <h3>@entry.EntryDate.ToString("dd/MM/yyyy")</h3>
+                            <p>
+                                @if (entry.WeightKg is not null) { <span>Peso: @entry.WeightKg kg · </span> }
+                                @if (entry.TemperatureCelsius is not null) { <span>Temperatura: @entry.TemperatureCelsius °C · </span> }
+                                @if (!string.IsNullOrWhiteSpace(entry.Appetite)) { <span>Apetite: @entry.Appetite · </span> }
+                                @if (!string.IsNullOrWhiteSpace(entry.Behavior)) { <span>Comportamento: @entry.Behavior</span> }
+                            </p>
+                            @if (entry.Symptoms.Length > 0) { <p><strong>Sintomas:</strong> @string.Join(", ", entry.Symptoms)</p> }
+                            @if (!string.IsNullOrWhiteSpace(entry.Notes)) { <p><strong>Observações:</strong> @entry.Notes</p> }
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    }
+</section>
+
+@code {
+    [Parameter] public Guid ConnectionId { get; set; }
+
+    private VetPatientDetailDto? _detail;
+    private string? _error;
+    private bool _isLoading = true;
+    private bool _offline;
+    private bool _notFound;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        _notFound = false;
+        var result = await VetPatientService.GetAsync(ConnectionId);
+        _isLoading = false;
+        if (!result.Succeeded)
+        {
+            _notFound = result.IsNotFound;
+            _offline = result.IsOffline;
+            _error = result.Error;
+            return;
+        }
+
+        _detail = result.Data;
+    }
+}

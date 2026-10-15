@@ -29,6 +29,10 @@ public static class AuthorizationExtensions
             options.AddPolicy("TutorOnly", policy =>
                 policy.RequireRole("Tutor"));
 
+            // Policy for administrators only
+            options.AddPolicy("AdminOnly", policy =>
+                policy.RequireRole(RoleSeeder.AdminRole));
+
             // Policy for resource ownership verification
             options.AddPolicy("ResourceOwnership", policy =>
                 policy.AddRequirements(new ResourceOwnershipRequirement()));

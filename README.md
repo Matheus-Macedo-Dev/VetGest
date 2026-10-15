@@ -79,6 +79,18 @@ Configure these API App Settings in Azure App Service, without committing them:
 - `Jwt__SecretKey`: production JWT signing key.
 - `Jwt__Issuer` and `Jwt__Audience`: production token values.
 - `Cors__AllowedOrigins__0`: public HTTPS URL of the Static Web App.
+- `Admin__Email` and `Admin__Password`: bootstrap administrator, created at startup if no `Admin` exists (locally use `dotnet user-secrets`). Remove `Admin__Password` after the first start.
+
+### Roles, vet connection and chat
+
+- Logged out: only Entrar / Criar conta. After login each role lands on its own area: Admin → `/admin/vets`, Vet → `/vet-connection`, Tutor → `/pets`.
+- A vet generates a one-time code (`POST api/vet-connections/codes`). The tutor enters it at `/vet-connection` and chooses which active pregnancy to share (`POST api/vet-connections/accept` with `PetId` and `PregnancyId`). Either party can end the connection; that cuts diary access and chat immediately. The older `POST api/vet-connections/invitations` endpoint still works but is deprecated and no longer used by the UI.
+- A linked vet sees the shared pet, an estimated due date and the tutor's diary entries **read-only** (`/vet/patients`, `GET api/vet/patients`). Access requires an Active connection owned by that vet.
+- Live chat (`/chat`, SignalR hub `/hubs/chat`) works between the two participants of an Active connection. Messages are relayed only and are **not stored**; membership is re-checked on every join and send, and the UI shows that the chat is not for emergencies.
+- SignalR clients authenticate with `access_token` in the query string (accepted only for `/hubs/*`).
+### Accounts and CRMV
+
+Public sign-up only creates `Tutor` accounts. Veterinarians are created by an administrator at `/admin/vets`, which returns a one-time link (`/definir-senha`) for the vet to choose a password. The CRMV (number + UF) is validated only for format; there is no CFMV API (the search at `app.cfmv.gov.br` is reCAPTCHA-protected), so the administrator must confirm name, number, UF and active status there before creating the account.
 
 ### Supabase PostgreSQL
 
@@ -90,7 +102,7 @@ Host=aws-0-<region>.pooler.supabase.com;Port=5432;Database=postgres;Username=pos
 
 If you use the transaction pooler (port 6543), also add `No Reset On Close=true` and do not enable `Max Auto Prepare`. Free projects pause after inactivity and must be resumed in the Supabase dashboard.
 
-The free or consumption tiers may sleep, have quotas, and are not equivalent to production-grade availability. Apply database migrations through a controlled release step before serving traffic; production startup does not apply migrations automatically.
+The free or consumption tiers may sleep, have quotas, and are not equivalent to production-grade availability. Apply database migrations through a controlled release step before serving traffic; production startup does not apply migrations automatically unless `Database__MigrateOnStartup=true` is set. Roles are seeded in the background after the API starts listening, so port 8080 opens without waiting for the database.
 
 ## Authenticated pet registration backend
 

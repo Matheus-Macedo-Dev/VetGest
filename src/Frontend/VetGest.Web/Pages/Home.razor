@@ -2,6 +2,7 @@
 @inject ITodayService TodayService
 @inject LiveTodayService LiveTodayService
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
 
 <PageTitle>Minha Gestação Hoje | VetGest</PageTitle>
 
@@ -41,6 +42,18 @@
 	{
 		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
 		_isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+		if (!_isAuthenticated)
+		{
+			Navigation.NavigateTo("login", replace: true);
+			return;
+		}
+
+		if (!authState.User.IsInRole("Tutor"))
+		{
+			Navigation.NavigateTo(RoleRouting.HomeFor(authState.User), replace: true);
+			return;
+		}
+
 		await LoadTodayAsync();
 	}
 

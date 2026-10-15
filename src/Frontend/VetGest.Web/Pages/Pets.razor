@@ -1,5 +1,5 @@
-@page "/pets"
-@attribute [Authorize]
+﻿@page "/pets"
+@attribute [Authorize(Roles = "Tutor")]
 @inject PetService PetService
 
 <PageTitle>Meus pets | VetGest</PageTitle>

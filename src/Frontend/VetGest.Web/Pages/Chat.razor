@@ -1,0 +1,208 @@
+﻿@page "/chat"
+@attribute [Authorize(Roles = "Vet,Tutor")]
+@implements IAsyncDisposable
+@using System.Security.Claims
+@using Microsoft.AspNetCore.SignalR
+@using Microsoft.AspNetCore.SignalR.Client
+@inject VetConnectionService VetConnectionService
+@inject ChatRealtimeService ChatService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Chat | VetGest</PageTitle>
+
+<section class="vet-connection-page" aria-labelledby="chat-title">
+    <div class="page-heading"><div><span class="section-kicker">Conversa ao vivo</span><h1 id="chat-title">Chat</h1><p>Converse em tempo real com @(_isVet ? "seus tutores conectados" : "seu veterinário conectado").</p></div></div>
+
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+        As mensagens não são salvas: ao recarregar a página a conversa some. Este chat não substitui atendimento.
+        Em caso de emergência, procure atendimento veterinário imediato.
+    </MudAlert>
+
+    @if (_isLoading)
+    {
+        <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando conexões...</span></div>
+    }
+    else if (_error is not null)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@(_offline ? Icons.Material.Filled.CloudOff : Icons.Material.Filled.ErrorOutline)" Size="Size.Large" /><div><strong>@(_offline ? "Sem conexão" : "Não foi possível carregar")</strong><span>@_error</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" @onclick="LoadAsync">Tentar novamente</MudButton></div></div>
+    }
+    else if (_connections.Count == 0)
+    {
+        <div class="state-panel"><MudIcon Icon="@Icons.Material.Filled.Chat" Size="Size.Large" /><div><strong>Nenhuma conexão ativa</strong><span>O chat fica disponível depois que um tutor e um veterinário se conectam por código.</span><MudButton Href="vet-connection" Variant="Variant.Filled" Color="Color.Primary">Ir para conexões</MudButton></div></div>
+    }
+    else
+    {
+        <MudSelect T="Guid" Value="_selectedId" ValueChanged="SelectAsync" Label="Conversa" Class="mt-2">
+            @foreach (var connection in _connections)
+            {
+                <MudSelectItem Value="@connection.Id">@Label(connection)</MudSelectItem>
+            }
+        </MudSelect>
+
+        @if (_chatError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_chatError</MudAlert>
+        }
+        @if (_closed)
+        {
+            <MudAlert Severity="Severity.Info">Esta conexão foi encerrada. O chat não está mais disponível.</MudAlert>
+        }
+        @if (_state != HubConnectionState.Connected && !_closed)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true">Reconectando ao chat...</MudAlert>
+        }
+
+        <div class="chat-panel" role="log" aria-live="polite" aria-label="Mensagens da conversa" style="max-height:50vh;overflow-y:auto;padding:.75rem;border:1px solid var(--mud-palette-divider);border-radius:8px;margin:.75rem 0;">
+            @if (CurrentMessages.Count == 0)
+            {
+                <p class="empty-note">Nenhuma mensagem nesta sessão.</p>
+            }
+            @foreach (var message in CurrentMessages)
+            {
+                var mine = message.SenderUserId == _userId;
+                <div style="display:flex;justify-content:@(mine ? "flex-end" : "flex-start");margin-bottom:.5rem;">
+                    <div style="max-width:80%;padding:.5rem .75rem;border-radius:12px;background:@(mine ? "var(--mud-palette-primary)" : "var(--mud-palette-surface)");color:@(mine ? "#fff" : "inherit");border:1px solid var(--mud-palette-divider);">
+                        <small>@(mine ? "Você" : message.SenderName) · @message.SentAtUtc.ToLocalTime().ToString("HH:mm")</small>
+                        <div style="white-space:pre-wrap;word-break:break-word;">@message.Text</div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <EditForm Model="this" OnSubmit="SendAsync">
+            <MudTextField @bind-Value="_text" Label="Mensagem" MaxLength="@ChatHubMethods.MaxMessageLength" Disabled="@(_closed || _state != HubConnectionState.Connected)" Immediate="true" autocomplete="off" />
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_closed || _sending || string.IsNullOrWhiteSpace(_text) || _state != HubConnectionState.Connected)" StartIcon="@Icons.Material.Filled.Send">Enviar</MudButton>
+        </EditForm>
+    }
+</section>
+
+@code {
+    private readonly Dictionary<Guid, List<ChatMessageDto>> _messages = [];
+    private readonly HashSet<Guid> _joined = [];
+    private List<VetConnectionDto> _connections = [];
+    private HubConnectionState _state = HubConnectionState.Disconnected;
+    private Guid _selectedId;
+    private string _userId = string.Empty;
+    private string? _error;
+    private string? _chatError;
+    private string _text = string.Empty;
+    private bool _isLoading = true;
+    private bool _offline;
+    private bool _isVet;
+    private bool _closed;
+    private bool _sending;
+
+    private List<ChatMessageDto> CurrentMessages =>
+        _messages.TryGetValue(_selectedId, out var list) ? list : [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+        _isVet = user.IsInRole("Vet");
+        _userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+        ChatService.MessageReceived += OnMessageAsync;
+        ChatService.ChatClosed += OnClosedAsync;
+        ChatService.StateChanged += OnStateAsync;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        var result = await VetConnectionService.ListAsync();
+        if (!result.Succeeded)
+        {
+            _offline = result.IsOffline;
+            _error = result.Error;
+            _isLoading = false;
+            return;
+        }
+
+        _connections = (result.Data ?? []).Where(item => item.Status == "Active").ToList();
+        _isLoading = false;
+        if (_connections.Count > 0)
+            await SelectAsync(_selectedId != Guid.Empty && _connections.Any(item => item.Id == _selectedId) ? _selectedId : _connections[0].Id);
+    }
+
+    private async Task SelectAsync(Guid connectionId)
+    {
+        _chatError = null;
+        _closed = false;
+        _selectedId = connectionId;
+        try
+        {
+            await ChatService.JoinAsync(connectionId);
+            _joined.Add(connectionId);
+            _state = ChatService.State;
+        }
+        catch (Exception exception)
+        {
+            _chatError = exception is HubException ? "Você não tem acesso a esta conversa." : "Não foi possível conectar ao chat. Tente novamente.";
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        var text = _text.Trim();
+        if (text.Length == 0 || _closed)
+            return;
+
+        _sending = true;
+        _chatError = null;
+        try
+        {
+            await ChatService.SendAsync(_selectedId, text);
+            _text = string.Empty;
+        }
+        catch (Exception exception)
+        {
+            _chatError = exception is HubException ? "Não foi possível enviar a mensagem (limite de tamanho/velocidade ou conexão encerrada)." : "Falha de conexão ao enviar. Tente novamente.";
+        }
+        finally
+        {
+            _sending = false;
+        }
+    }
+
+    private Task OnMessageAsync(ChatMessageDto message)
+    {
+        if (!_messages.TryGetValue(message.ConnectionId, out var list))
+            _messages[message.ConnectionId] = list = [];
+
+        list.Add(message);
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private Task OnClosedAsync(Guid connectionId)
+    {
+        if (connectionId == _selectedId)
+            _closed = true;
+
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private Task OnStateAsync(HubConnectionState state)
+    {
+        _state = state;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private string Label(VetConnectionDto connection)
+    {
+        var who = connection.VetUserId == _userId ? connection.TutorName : connection.VetName;
+        return string.IsNullOrWhiteSpace(connection.PetName) ? who ?? "—" : $"{who} · {connection.PetName}";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        ChatService.MessageReceived -= OnMessageAsync;
+        ChatService.ChatClosed -= OnClosedAsync;
+        ChatService.StateChanged -= OnStateAsync;
+        foreach (var id in _joined)
+        {
+            try { await ChatService.LeaveAsync(id); } catch { }
+        }
+    }
+}

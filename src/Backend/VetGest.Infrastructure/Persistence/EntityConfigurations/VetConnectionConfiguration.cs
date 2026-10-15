@@ -22,7 +22,7 @@ public class VetConnectionConfiguration : IEntityTypeConfiguration<VetConnection
 
         // Foreign key
         builder.Property(vc => vc.PregnancyId)
-            .IsRequired();
+            .IsRequired(false);
 
         // Properties
         builder.Property(vc => vc.VetUserId)
@@ -30,7 +30,7 @@ public class VetConnectionConfiguration : IEntityTypeConfiguration<VetConnection
             .HasMaxLength(128);
 
         builder.Property(vc => vc.TutorUserId)
-            .IsRequired()
+            .IsRequired(false)
             .HasMaxLength(128);
 
         builder.Property(vc => vc.InvitationCode)
@@ -75,7 +75,7 @@ public class VetConnectionConfiguration : IEntityTypeConfiguration<VetConnection
             .WithMany(pr => pr.VetConnections)
             .HasForeignKey(vc => vc.PregnancyId)
             .OnDelete(DeleteBehavior.Cascade)
-            .IsRequired();
+            .IsRequired(false);
 
         // No direct navigation to Users (they're in Identity tables)
         // Authorization layer will validate VetUserId and TutorUserId exist

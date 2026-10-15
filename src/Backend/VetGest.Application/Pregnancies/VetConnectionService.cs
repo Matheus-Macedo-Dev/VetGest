@@ -7,16 +7,38 @@ namespace VetGest.Application.Pregnancies;
 public sealed class VetConnectionService : IVetConnectionService
 {
     private const int MaxInvitationGenerationAttempts = 5;
+    private const int MaxOpenCodesPerVet = 5;
     private static readonly TimeSpan FallbackInvitationTtl = TimeSpan.FromDays(7);
     private static readonly TimeSpan FallbackMaxInvitationTtl = TimeSpan.FromDays(14);
 
     private readonly IVetConnectionRepository _repository;
     private readonly VetConnectionServiceOptions _options;
+    private readonly IUserDirectory? _userDirectory;
 
-    public VetConnectionService(IVetConnectionRepository repository, VetConnectionServiceOptions? options = null)
+    public VetConnectionService(
+        IVetConnectionRepository repository,
+        VetConnectionServiceOptions? options = null,
+        IUserDirectory? userDirectory = null)
     {
         _repository = repository;
         _options = options ?? new VetConnectionServiceOptions();
+        _userDirectory = userDirectory;
+    }
+
+    public async Task<VetConnectionDto> CreateCodeAsync(string vetUserId, CancellationToken cancellationToken)
+    {
+        EnsureUserId(vetUserId, nameof(vetUserId));
+
+        var now = DateTime.UtcNow;
+        if (await _repository.CountOpenCodesAsync(vetUserId.Trim(), now, cancellationToken) >= MaxOpenCodesPerVet)
+            throw new VetInvitationConflictException("Você já possui muitos códigos em aberto. Aguarde que expirem ou revogue algum antes de gerar outro.");
+
+        var code = await GenerateUniqueCodeAsync(cancellationToken);
+        var expiresAt = now.Add(ClampInvitationTtl(_options.InvitationTtl, _options.MaxInvitationTtl));
+        var connection = VetConnection.CreateOpenCode(Guid.NewGuid(), vetUserId.Trim(), code, expiresAt);
+
+        await _repository.AddAsync(connection, vetUserId.Trim(), cancellationToken);
+        return await WithNamesAsync(Map(connection, Guid.Empty), null, cancellationToken);
     }
 
     public async Task<VetConnectionDto> CreateInvitationAsync(
@@ -50,7 +72,7 @@ public sealed class VetConnectionService : IVetConnectionService
             expiresAt);
 
         await _repository.AddAsync(connection, request.TutorUserId.Trim(), cancellationToken);
-        return Map(connection, pregnancy.PetId);
+        return await WithNamesAsync(Map(connection, pregnancy.PetId), pregnancy.Pet?.Name, cancellationToken);
     }
 
     public async Task<VetConnectionDto> AcceptInvitationAsync(
@@ -74,6 +96,9 @@ public sealed class VetConnectionService : IVetConnectionService
         if (connection is null)
             throw new VetConnectionNotFoundException();
 
+        if (connection.TutorUserId is null)
+            return await AcceptOpenCodeAsync(connection, request, tutorUserId.Trim(), cancellationToken);
+
         if (!StringComparer.Ordinal.Equals(connection.TutorUserId, tutorUserId.Trim()))
             throw new VetConnectionNotFoundException();
 
@@ -89,7 +114,10 @@ public sealed class VetConnectionService : IVetConnectionService
         connection.Accept();
         await _repository.SaveChangesAsync(cancellationToken);
 
-        return Map(connection, await ResolvePetIdAsync(connection, cancellationToken));
+        return await WithNamesAsync(
+            Map(connection, await ResolvePetIdAsync(connection, cancellationToken)),
+            connection.Pregnancy?.Pet?.Name,
+            cancellationToken);
     }
 
     public async Task<VetConnectionDto> RevokeAsync(
@@ -115,7 +143,10 @@ public sealed class VetConnectionService : IVetConnectionService
             await _repository.SaveChangesAsync(cancellationToken);
         }
 
-        return Map(connection, await ResolvePetIdAsync(connection, cancellationToken));
+        return await WithNamesAsync(
+            Map(connection, await ResolvePetIdAsync(connection, cancellationToken)),
+            connection.Pregnancy?.Pet?.Name,
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<VetConnectionDto>> ListForUserAsync(
@@ -124,7 +155,25 @@ public sealed class VetConnectionService : IVetConnectionService
     {
         EnsureUserId(userId, nameof(userId));
         var connections = await _repository.ListByUserAsync(userId.Trim(), cancellationToken);
-        return connections.Select(connection => Map(connection, connection.Pregnancy.PetId)).ToArray();
+        var dtos = new List<VetConnectionDto>(connections.Count);
+        foreach (var connection in connections)
+            dtos.Add(await WithNamesAsync(Map(connection, connection.Pregnancy?.PetId ?? Guid.Empty), connection.Pregnancy?.Pet?.Name, cancellationToken));
+
+        return dtos;
+    }
+
+    public async Task<bool> CanChatAsync(Guid connectionId, string userId, CancellationToken cancellationToken)
+    {
+        EnsureUserId(userId, nameof(userId));
+        if (connectionId == Guid.Empty)
+            return false;
+
+        var connection = await _repository.GetByIdAsync(connectionId, cancellationToken);
+        var normalizedUserId = userId.Trim();
+        return connection is not null
+            && StringComparer.Ordinal.Equals(connection.Status, VetConnectionStatus.Active.Value)
+            && (StringComparer.Ordinal.Equals(connection.VetUserId, normalizedUserId)
+                || StringComparer.Ordinal.Equals(connection.TutorUserId, normalizedUserId));
     }
 
     public async Task<bool> CanAccessPregnancyAsync(
@@ -137,6 +186,57 @@ public sealed class VetConnectionService : IVetConnectionService
             return false;
 
         return await _repository.CanUserAccessPregnancyAsync(pregnancyId, userId.Trim(), cancellationToken);
+    }
+
+    private async Task<VetConnectionDto> AcceptOpenCodeAsync(
+        VetConnection connection,
+        AcceptVetInvitationRequest request,
+        string tutorUserId,
+        CancellationToken cancellationToken)
+    {
+        if (StringComparer.Ordinal.Equals(connection.Status, VetConnectionStatus.Revoked.Value))
+            throw new VetInvitationConflictException("Este convite foi revogado.");
+
+        if (!connection.IsInvitationValid())
+            throw new VetInvitationConflictException("Este convite expirou e não pode mais ser aceito.");
+
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        if (request.PetId is null || request.PetId == Guid.Empty)
+            errors[nameof(request.PetId)] = ["Escolha o pet cuja gestação será compartilhada."];
+
+        if (request.PregnancyId is null || request.PregnancyId == Guid.Empty)
+            errors[nameof(request.PregnancyId)] = ["Escolha a gestação que será compartilhada."];
+
+        if (StringComparer.Ordinal.Equals(connection.VetUserId, tutorUserId))
+            errors[nameof(request.InvitationCode)] = ["O veterinário e o tutor não podem ser o mesmo usuário."];
+
+        if (errors.Count > 0)
+            throw new VetConnectionValidationException(errors);
+
+        var pregnancy = await _repository.GetOwnedPregnancyAsync(request.PetId!.Value, request.PregnancyId!.Value, tutorUserId, cancellationToken);
+        if (pregnancy is null || !pregnancy.IsActive())
+            throw new VetConnectionNotFoundException();
+
+        if (await _repository.HasActiveConnectionAsync(connection.VetUserId, pregnancy.Id, cancellationToken))
+            throw new VetInvitationConflictException("Este veterinário já está conectado a esta gestação.");
+
+        connection.AcceptByTutor(tutorUserId, pregnancy.Id);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return await WithNamesAsync(Map(connection, pregnancy.PetId), pregnancy.Pet?.Name, cancellationToken);
+    }
+
+    private async Task<VetConnectionDto> WithNamesAsync(VetConnectionDto dto, string? petName, CancellationToken cancellationToken)
+    {
+        dto.PetName = petName;
+        if (_userDirectory is null)
+            return dto;
+
+        var ids = new[] { dto.VetUserId, dto.TutorUserId }.Where(id => !string.IsNullOrEmpty(id)).Distinct().ToArray();
+        var names = await _userDirectory.GetDisplayNamesAsync(ids, cancellationToken);
+        dto.VetName = names.GetValueOrDefault(dto.VetUserId);
+        dto.TutorName = names.GetValueOrDefault(dto.TutorUserId);
+        return dto;
     }
 
     private static Dictionary<string, string[]> ValidateCreateRequest(
@@ -190,9 +290,9 @@ public sealed class VetConnectionService : IVetConnectionService
     {
         Id = connection.Id,
         PetId = petId,
-        PregnancyId = connection.PregnancyId,
+        PregnancyId = connection.PregnancyId ?? Guid.Empty,
         VetUserId = connection.VetUserId,
-        TutorUserId = connection.TutorUserId,
+        TutorUserId = connection.TutorUserId ?? string.Empty,
         InvitationCode = connection.InvitationCode,
         InvitationExpiresAt = connection.InvitationExpiresAt,
         AcceptedAt = connection.AcceptedAt,
@@ -210,7 +310,10 @@ public sealed class VetConnectionService : IVetConnectionService
         if (connection.Pregnancy is not null)
             return connection.Pregnancy.PetId;
 
-        var petId = await _repository.GetPetIdByPregnancyIdAsync(connection.PregnancyId, cancellationToken);
+        if (connection.PregnancyId is null)
+            return Guid.Empty;
+
+        var petId = await _repository.GetPetIdByPregnancyIdAsync(connection.PregnancyId.Value, cancellationToken);
         return petId ?? Guid.Empty;
     }
 }

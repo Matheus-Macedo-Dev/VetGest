@@ -60,9 +60,43 @@ public sealed class AuthService(
             ApiResponse<AuthResponse>.Ok(await CreateAuthResponseAsync(user)));
     }
 
+    public async Task<AuthOperationResult> SetPasswordAsync(SetPasswordRequest request)
+    {
+        var invalid = new AuthOperationResult(StatusCodes.Status400BadRequest,
+            ApiResponse<AuthResponse>.Fail("O link de definição de senha é inválido ou expirou. Solicite um novo ao administrador."));
+
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Token))
+            return invalid;
+
+        if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal))
+            return ValidationResult(new Dictionary<string, string[]>
+            {
+                [nameof(SetPasswordRequest.ConfirmPassword)] = ["As senhas informadas não conferem."]
+            });
+
+        var user = await userManager.FindByEmailAsync(request.Email.Trim());
+        if (user is null || !user.IsActive)
+            return invalid;
+
+        var result = await userManager.ResetPasswordAsync(user, request.Token, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            var passwordErrors = result.Errors
+                .Where(error => error.Code.StartsWith("Password", StringComparison.OrdinalIgnoreCase))
+                .Select(error => error.Description)
+                .ToArray();
+
+            return passwordErrors.Length > 0
+                ? ValidationResult(new Dictionary<string, string[]> { [nameof(SetPasswordRequest.NewPassword)] = passwordErrors })
+                : invalid;
+        }
+
+        return new(StatusCodes.Status200OK, ApiResponse<AuthResponse>.Ok(await CreateAuthResponseAsync(user)));
+    }
+
     public async Task<AuthOperationResult> LoginAsync(LoginRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        if (request is null || string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             return InvalidCredentials();
 
         var user = await userManager.FindByEmailAsync(request.Email.Trim());

@@ -6,7 +6,7 @@
 <PageTitle>Criar conta | VetGest</PageTitle>
 
 <section class="form-page" aria-labelledby="register-title">
-    <div class="form-heading"><span class="section-kicker">Conta de tutor</span><h1 id="register-title">Comece pelo cuidado</h1><p>Crie uma conta para registrar seus pets. Contas de veterinário são provisionadas separadamente.</p></div>
+    <div class="form-heading"><span class="section-kicker">Conta de tutor</span><h1 id="register-title">Comece pelo cuidado</h1><p>Crie uma conta para registrar seus pets. Contas de veterinário são criadas pela equipe VetGest após a conferência do CRMV.</p></div>
     <EditForm Model="_model" OnValidSubmit="SubmitAsync">
         <DataAnnotationsValidator />
         @if (_error is not null) { <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)">@_error</MudAlert> }

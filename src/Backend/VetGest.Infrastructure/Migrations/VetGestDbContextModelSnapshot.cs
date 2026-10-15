@@ -17,7 +17,7 @@ namespace VetGest.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -367,7 +367,7 @@ namespace VetGest.Infrastructure.Migrations
                         .HasDefaultValue(true);
 
                     b.Property<DateTime>("ModifiedAt")
-                        .ValueGeneratedOnAddOrUpdate()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
@@ -586,7 +586,7 @@ namespace VetGest.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("ModifiedAt")
-                        .ValueGeneratedOnAddOrUpdate()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
@@ -651,7 +651,7 @@ namespace VetGest.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("ModifiedAt")
-                        .ValueGeneratedOnAddOrUpdate()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
@@ -721,7 +721,7 @@ namespace VetGest.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("ModifiedAt")
-                        .ValueGeneratedOnAddOrUpdate()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
@@ -730,7 +730,7 @@ namespace VetGest.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
-                    b.Property<Guid>("PregnancyId")
+                    b.Property<Guid?>("PregnancyId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Status")
@@ -741,7 +741,6 @@ namespace VetGest.Infrastructure.Migrations
                         .HasDefaultValue("Pending");
 
                     b.Property<string>("TutorUserId")
-                        .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
@@ -788,6 +787,20 @@ namespace VetGest.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("CrmvCheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CrmvCheckedByUserId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CrmvNumber")
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
+
+                    b.Property<string>("CrmvState")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
@@ -847,6 +860,9 @@ namespace VetGest.Infrastructure.Migrations
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
+
+                    b.HasIndex("CrmvState", "CrmvNumber")
+                        .IsUnique();
 
                     b.ToTable("Users", (string)null);
                 });
@@ -936,8 +952,7 @@ namespace VetGest.Infrastructure.Migrations
                     b.HasOne("VetGest.Domain.Entities.Pregnancy", "Pregnancy")
                         .WithMany("VetConnections")
                         .HasForeignKey("PregnancyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Pregnancy");
                 });
@@ -957,4 +972,3 @@ namespace VetGest.Infrastructure.Migrations
         }
     }
 }
-

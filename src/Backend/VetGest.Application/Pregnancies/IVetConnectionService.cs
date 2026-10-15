@@ -9,6 +9,10 @@ public interface IVetConnectionService
         string vetUserId,
         CancellationToken cancellationToken);
 
+    Task<VetConnectionDto> CreateCodeAsync(
+        string vetUserId,
+        CancellationToken cancellationToken);
+
     Task<VetConnectionDto> AcceptInvitationAsync(
         AcceptVetInvitationRequest request,
         string tutorUserId,
@@ -22,6 +26,9 @@ public interface IVetConnectionService
     Task<IReadOnlyList<VetConnectionDto>> ListForUserAsync(
         string userId,
         CancellationToken cancellationToken);
+
+    /// <summary>True only for a participant of an Active connection.</summary>
+    Task<bool> CanChatAsync(Guid connectionId, string userId, CancellationToken cancellationToken);
 
     Task<bool> CanAccessPregnancyAsync(
         Guid pregnancyId,

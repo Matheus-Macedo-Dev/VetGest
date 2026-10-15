@@ -1,0 +1,73 @@
+@page "/vet/patients"
+@attribute [Authorize(Roles = "Vet")]
+@inject VetPatientService VetPatientService
+
+<PageTitle>Pacientes | VetGest</PageTitle>
+
+<section class="vet-connection-page" aria-labelledby="patients-title">
+    <div class="page-heading"><div><span class="section-kicker">Acompanhamento compartilhado</span><h1 id="patients-title">Pacientes</h1><p>Gestações que tutores compartilharam com você. Os registros são somente leitura.</p></div></div>
+
+    @if (_isLoading)
+    {
+        <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando pacientes...</span></div>
+    }
+    else if (_error is not null)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@(_offline ? Icons.Material.Filled.CloudOff : Icons.Material.Filled.ErrorOutline)" Size="Size.Large" /><div><strong>@(_offline ? "Sem conexão" : "Não foi possível carregar")</strong><span>@_error</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" @onclick="LoadAsync">Tentar novamente</MudButton></div></div>
+    }
+    else if (_patients.Count == 0)
+    {
+        <div class="state-panel"><MudIcon Icon="@Icons.Material.Filled.PersonSearch" Size="Size.Large" /><div><strong>Nenhum paciente conectado</strong><span>Gere um código em "Conexão com tutores" e envie ao tutor para começar.</span><MudButton Href="vet-connection" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Key">Gerar código</MudButton></div></div>
+    }
+    else
+    {
+        <div class="connection-items" role="list">
+            @foreach (var patient in _patients)
+            {
+                <article class="connection-item" role="listitem">
+                    <div>
+                        <h3>@patient.PetName <small>(@SpeciesLabel(patient.Species))</small></h3>
+                        <p>Tutor: @patient.TutorName</p>
+                        <p>Parto estimado: @patient.EstimatedDueDate.ToString("dd/MM/yyyy")</p>
+                    </div>
+                    <div>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href=@($"vet/patients/{patient.ConnectionId}") StartIcon="@Icons.Material.Filled.MenuBook">Ver diário</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="chat" StartIcon="@Icons.Material.Filled.Chat">Chat</MudButton>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private List<VetPatientDto> _patients = [];
+    private string? _error;
+    private bool _isLoading = true;
+    private bool _offline;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        var result = await VetPatientService.ListAsync();
+        _isLoading = false;
+        if (!result.Succeeded)
+        {
+            _offline = result.IsOffline;
+            _error = result.Error;
+            return;
+        }
+
+        _patients = result.Data?.ToList() ?? [];
+    }
+
+    private static string SpeciesLabel(string species) => species switch
+    {
+        "Dog" => "cão",
+        "Cat" => "gato",
+        _ => species
+    };
+}

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using VetGest.API.Authentication;
 using VetGest.Contracts.Authentication;
 using VetGest.Contracts.Common;
@@ -20,6 +21,16 @@ public sealed class AuthController : ControllerBase
     public async Task<ActionResult<ApiResponse<AuthResponse>>> Register(RegisterRequest request)
     {
         var result = await _authService.RegisterAsync(request);
+        return StatusCode(result.StatusCode, result.Response);
+    }
+
+    [HttpPost("set-password")]
+    [EnableRateLimiting("auth-sensitive")]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> SetPassword(SetPasswordRequest request)
+    {
+        var result = await _authService.SetPasswordAsync(request);
         return StatusCode(result.StatusCode, result.Response);
     }
 

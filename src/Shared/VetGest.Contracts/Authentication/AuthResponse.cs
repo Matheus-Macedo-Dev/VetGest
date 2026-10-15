@@ -99,3 +99,22 @@ public class RegisterRequest
     /// </summary>
     public string Role { get; set; } = "Tutor";
 }
+
+/// <summary>
+/// Request to set the first password of an account provisioned by an administrator.
+/// </summary>
+public class SetPasswordRequest
+{
+    [Required, EmailAddress]
+    public string Email { get; set; } = string.Empty;
+
+    /// <summary>One-time token received from the administrator.</summary>
+    [Required]
+    public string Token { get; set; } = string.Empty;
+
+    [Required, MinLength(8)]
+    public string NewPassword { get; set; } = string.Empty;
+
+    [Required, Compare(nameof(NewPassword))]
+    public string ConfirmPassword { get; set; } = string.Empty;
+}

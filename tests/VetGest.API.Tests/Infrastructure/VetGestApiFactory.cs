@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using VetGest.API.Admin;
 using VetGest.API.Hubs;
 using VetGest.Application.Pregnancies;
 
@@ -11,6 +12,7 @@ namespace VetGest.API.Tests.Infrastructure;
 public sealed class VetGestApiFactory : WebApplicationFactory<Program>
 {
     public TestVetConnectionService VetConnectionService { get; } = new();
+    public TestVetPatientService VetPatientService { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -32,6 +34,15 @@ public sealed class VetGestApiFactory : WebApplicationFactory<Program>
 
             services.RemoveAll<IVetConnectionRealtimePublisher>();
             services.AddSingleton<IVetConnectionRealtimePublisher, NoopVetConnectionRealtimePublisher>();
+
+            services.RemoveAll<IVetPatientService>();
+            services.AddSingleton<IVetPatientService>(VetPatientService);
+
+            services.RemoveAll<IUserDirectory>();
+            services.AddSingleton<IUserDirectory, TestUserDirectory>();
+
+            services.RemoveAll<IAdminVetService>();
+            services.AddSingleton<IAdminVetService, TestAdminVetService>();
         });
     }
 }

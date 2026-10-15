@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using VetGest.Contracts.Common;
@@ -30,15 +30,20 @@ public abstract class ApiClient(HttpClient httpClient, IApiWakeUpService wakeUpS
             var isUnauthorized = response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
             var isNotFound = response.StatusCode == HttpStatusCode.NotFound;
             var isConflict = response.StatusCode == HttpStatusCode.Conflict;
+            // Prefer the message the API sent (it is specific, e.g. which field conflicted); fall back to a generic one by status.
+            var serverMessage = string.IsNullOrWhiteSpace(envelope?.Error) || envelope.Error == "Validation failed."
+                ? null
+                : envelope.Error;
             var error = response.StatusCode == HttpStatusCode.Forbidden
                 ? "Você não tem permissão para acessar este conteúdo."
-                : isUnauthorized
-                    ? "Sua sessão expirou. Entre novamente para continuar."
-                : isNotFound
-                    ? "Não encontramos este registro ou você não tem acesso a ele."
-                    : isConflict
-                        ? "Já existe um registro para esta data. Escolha outro dia."
-                        : envelope?.Error ?? "Não foi possível concluir a solicitação.";
+                : serverMessage
+                    ?? (isUnauthorized
+                        ? "Sua sessão expirou. Entre novamente para continuar."
+                        : isNotFound
+                            ? "Não encontramos este registro ou você não tem acesso a ele."
+                            : isConflict
+                                ? "Esta operação conflita com um registro já existente."
+                                : "Não foi possível concluir a solicitação.");
             return ApiCallResult<T>.Failure(error, validationErrors: envelope?.ValidationErrors,
                 isUnauthorized: isUnauthorized, isNotFound: isNotFound, isConflict: isConflict);
         }

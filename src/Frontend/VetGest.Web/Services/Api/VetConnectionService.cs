@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using VetGest.Contracts.Pregnancies;
 
 namespace VetGest.Web.Services.Api;
@@ -10,6 +10,9 @@ public sealed class VetConnectionService(HttpClient httpClient, IApiWakeUpServic
         SendAsync<IReadOnlyList<VetConnectionDto>>(
             new HttpRequestMessage(HttpMethod.Get, "api/vet-connections"),
             cancellationToken);
+
+    public Task<ApiCallResult<VetConnectionDto>> CreateCodeAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<VetConnectionDto>(new HttpRequestMessage(HttpMethod.Post, "api/vet-connections/codes"), cancellationToken);
 
     public Task<ApiCallResult<VetConnectionDto>> CreateInvitationAsync(
         CreateVetInvitationRequest request,

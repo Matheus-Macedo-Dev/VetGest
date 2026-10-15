@@ -33,6 +33,16 @@ public sealed class TestVetConnectionService : IVetConnectionService
         });
     }
 
+    public Task<VetConnectionDto> CreateCodeAsync(string vetUserId, CancellationToken cancellationToken) =>
+        Task.FromResult(new VetConnectionDto
+        {
+            Id = Guid.NewGuid(),
+            VetUserId = vetUserId,
+            InvitationCode = "OPENCODE1234",
+            InvitationExpiresAt = DateTime.UtcNow.AddDays(7),
+            Status = "Pending"
+        });
+
     public Task<VetConnectionDto> AcceptInvitationAsync(
         AcceptVetInvitationRequest request,
         string tutorUserId,
@@ -80,6 +90,11 @@ public sealed class TestVetConnectionService : IVetConnectionService
 
         return Task.FromResult<IReadOnlyList<VetConnectionDto>>([]);
     }
+
+    public HashSet<(Guid ConnectionId, string UserId)> AllowedChat { get; } = new();
+
+    public Task<bool> CanChatAsync(Guid connectionId, string userId, CancellationToken cancellationToken) =>
+        Task.FromResult(AllowedChat.Contains((connectionId, userId)));
 
     public Task<bool> CanAccessPregnancyAsync(Guid pregnancyId, string userId, CancellationToken cancellationToken)
     {

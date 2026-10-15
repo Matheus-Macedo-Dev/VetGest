@@ -29,6 +29,18 @@ public class ApplicationUser : IdentityUser<string>
     /// </summary>
     public DateTime? ModifiedAt { get; set; }
 
+    /// <summary>CRMV registration number (digits), set only for veterinarians.</summary>
+    public string? CrmvNumber { get; set; }
+
+    /// <summary>CRMV state (UF), set only for veterinarians.</summary>
+    public string? CrmvState { get; set; }
+
+    /// <summary>When an administrator confirmed the CRMV on the CFMV registry.</summary>
+    public DateTime? CrmvCheckedAt { get; set; }
+
+    /// <summary>Administrator who confirmed the CRMV.</summary>
+    public string? CrmvCheckedByUserId { get; set; }
+
     /// <summary>
     /// Initialize a new ApplicationUser.
     /// </summary>

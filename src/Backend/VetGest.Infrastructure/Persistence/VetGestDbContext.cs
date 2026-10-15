@@ -89,6 +89,18 @@ public class VetGestDbContext : IdentityDbContext<ApplicationUser, IdentityRole<
             .HasMaxLength(256);
 
         modelBuilder.Entity<ApplicationUser>()
+            .Property(u => u.CrmvNumber)
+            .HasMaxLength(6);
+
+        modelBuilder.Entity<ApplicationUser>()
+            .Property(u => u.CrmvState)
+            .HasMaxLength(2);
+
+        modelBuilder.Entity<ApplicationUser>()
+            .HasIndex(u => new { u.CrmvState, u.CrmvNumber })
+            .IsUnique();
+
+        modelBuilder.Entity<ApplicationUser>()
             .Property(u => u.CreatedAt)
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
 

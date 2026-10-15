@@ -57,6 +57,23 @@ public sealed class VetConnectionsController : ControllerBase
         }
     }
 
+    [HttpPost("codes")]
+    [Authorize(Policy = "VetOnly")]
+    [ProducesResponseType(typeof(ApiResponse<VetConnectionDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<VetConnectionDto>), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ApiResponse<VetConnectionDto>>> CreateCode(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var connection = await _service.CreateCodeAsync(_currentUser.UserId, cancellationToken);
+            return StatusCode(StatusCodes.Status201Created, ApiResponse<VetConnectionDto>.Ok(connection));
+        }
+        catch (VetInvitationConflictException exception)
+        {
+            return Conflict(ApiResponse<VetConnectionDto>.Fail(exception.Message));
+        }
+    }
+
     [HttpPost("accept")]
     [Authorize(Policy = "TutorOnly")]
     [ProducesResponseType(typeof(ApiResponse<VetConnectionDto>), StatusCodes.Status200OK)]

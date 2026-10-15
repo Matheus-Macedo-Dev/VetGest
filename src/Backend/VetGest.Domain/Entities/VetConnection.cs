@@ -17,12 +17,12 @@ public class VetConnection
     /// <summary>
     /// Foreign key to the Pregnancy this connection relates to.
     /// </summary>
-    public Guid PregnancyId { get; private set; }
+    public Guid? PregnancyId { get; private set; }
 
     /// <summary>
     /// Navigation property to the Pregnancy.
     /// </summary>
-    public Pregnancy Pregnancy { get; private set; } = null!;
+    public Pregnancy? Pregnancy { get; private set; }
 
     /// <summary>
     /// User ID of the veterinarian (the user with Vet role).
@@ -32,7 +32,7 @@ public class VetConnection
     /// <summary>
     /// User ID of the tutor (the pet owner, user with Tutor role).
     /// </summary>
-    public string TutorUserId { get; private set; } = string.Empty;
+    public string? TutorUserId { get; private set; }
 
     /// <summary>
     /// Unique invitation code for the vet to accept the connection.
@@ -64,6 +64,35 @@ public class VetConnection
     /// Shadow property: ModifiedAt (audit trail).
     /// </summary>
 
+    private VetConnection()
+    {
+    }
+
+    /// <summary>
+    /// Creates an open code issued by a vet. The tutor and pregnancy are bound when a tutor redeems the code.
+    /// </summary>
+    public static VetConnection CreateOpenCode(Guid id, string vetUserId, string invitationCode, DateTime invitationExpiresAt)
+    {
+        if (id == Guid.Empty)
+            throw new ArgumentException("VetConnection ID cannot be empty.", nameof(id));
+
+        if (string.IsNullOrWhiteSpace(vetUserId))
+            throw new ArgumentException("Vet user ID is required.", nameof(vetUserId));
+
+        if (string.IsNullOrWhiteSpace(invitationCode))
+            throw new ArgumentException("Invitation code is required.", nameof(invitationCode));
+
+        if (invitationExpiresAt.Kind != DateTimeKind.Utc || invitationExpiresAt <= DateTime.UtcNow)
+            throw new ArgumentException("Invitation expiry must be a future UTC date.", nameof(invitationExpiresAt));
+
+        return new VetConnection
+        {
+            Id = id,
+            VetUserId = vetUserId,
+            InvitationCode = invitationCode,
+            InvitationExpiresAt = invitationExpiresAt
+        };
+    }
     /// <summary>
     /// Creates a new VetConnection instance with an auto-generated invitation code.
     /// </summary>
@@ -137,6 +166,31 @@ public class VetConnection
     }
 
     /// <summary>
+    /// Binds an open code to the tutor and the pregnancy they chose to share, and activates the connection.
+    /// </summary>
+    public void AcceptByTutor(string tutorUserId, Guid pregnancyId)
+    {
+        if (string.IsNullOrWhiteSpace(tutorUserId))
+            throw new ArgumentException("Tutor user ID is required.", nameof(tutorUserId));
+
+        if (pregnancyId == Guid.Empty)
+            throw new ArgumentException("Pregnancy ID cannot be empty.", nameof(pregnancyId));
+
+        if (TutorUserId is not null)
+            throw new InvalidOperationException("This connection is already bound to a tutor.");
+
+        if (VetUserId == tutorUserId)
+            throw new InvalidOperationException("Vet and Tutor must be different users.");
+
+        if (!IsInvitationValid())
+            throw new InvalidOperationException("Cannot accept invitation: it has expired or is no longer pending.");
+
+        TutorUserId = tutorUserId;
+        PregnancyId = pregnancyId;
+        AcceptedAt = DateTime.UtcNow;
+        Status = VetConnectionStatus.Active.Value;
+    }
+    /// <summary>
     /// Revokes the vet connection (tutor or vet can revoke).
     /// </summary>
     public void Revoke()
@@ -158,3 +212,4 @@ public class VetConnection
         return code;
     }
 }
+
