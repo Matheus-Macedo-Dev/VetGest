@@ -5,7 +5,7 @@
 <PageTitle>Meus pets | VetGest</PageTitle>
 
 <section class="pets-page" aria-labelledby="pets-title">
-    <div class="page-heading"><div><span class="section-kicker">Minha conta</span><h1 id="pets-title">Meus pets</h1><p>Seus registros ficam disponíveis apenas para sua conta.</p></div><MudButton Href="pets/new" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Cadastrar pet</MudButton></div>
+    <div class="page-heading"><div><span class="section-kicker">Minha conta</span><h1 id="pets-title">Meus pets</h1><p>Todos os seus companheiros em um só lugar.</p></div><MudButton Href="pets/new" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Adicionar pet</MudButton></div>
     @if (_isLoading)
     {
         <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando seus pets...</span></div>
@@ -20,10 +20,20 @@
     }
     else
     {
-        <div class="pet-list" role="list">
+        <div class="pet-list pet-grid" role="list">
             @foreach (var pet in _pets)
             {
-                <article class="pet-card" role="listitem"><div class="pet-avatar" aria-hidden="true"><MudIcon Icon="@Icons.Material.Filled.Pets" Size="Size.Large" /></div><div><h2>@pet.Name</h2><p>@pet.Species@(string.IsNullOrWhiteSpace(pet.Breed) ? string.Empty : $" · {pet.Breed}")</p></div><span class="pet-status">@(pet.IsActive ? "Ativo" : "Inativo")</span>@if (pet.IsActive) { <MudIconButton Icon="@Icons.Material.Filled.PregnantWoman" Color="Color.Primary" Href=@($"pets/{pet.Id}/pregnancy/new") aria-label=@($"Registrar gestação para {pet.Name}") title="Registrar gestação" /> }</article>
+                <article class="pet-card pet-profile-card" role="listitem">
+                    <div class="pet-avatar" aria-hidden="true"><MudIcon Icon="@Icons.Material.Filled.Pets" Size="Size.Large" /></div>
+                    <div class="pet-profile-info">
+                        <div class="pet-profile-title"><h2>@pet.Name</h2><span class="pet-status @(pet.IsActive ? null : "pet-status--inactive")">@(pet.IsActive ? "Ativo" : "Inativo")</span></div>
+                        <p>@SpeciesLabel(pet.Species)@(string.IsNullOrWhiteSpace(pet.Breed) ? string.Empty : $" · {pet.Breed}")</p>
+                        @if (pet.IsActive)
+                        {
+                            <MudButton Href=@($"pets/{pet.Id}/pregnancy/new") Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PregnantWoman">Registrar gestação</MudButton>
+                        }
+                    </div>
+                </article>
             }
         </div>
     }
@@ -43,4 +53,11 @@
         _offline = result.IsOffline;
         _error = result.Error;
     }
+
+    private static string SpeciesLabel(string species) => species switch
+    {
+        "Dog" => "Cão",
+        "Cat" => "Gato",
+        _ => species
+    };
 }

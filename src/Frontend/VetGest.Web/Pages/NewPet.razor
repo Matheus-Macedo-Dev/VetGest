@@ -6,21 +6,53 @@
 <PageTitle>Cadastrar pet | VetGest</PageTitle>
 
 <section class="form-page" aria-labelledby="new-pet-title">
-    <div class="form-heading"><span class="section-kicker">Novo registro</span><h1 id="new-pet-title">Cadastrar pet</h1><p>Registre informações básicas. Elas ajudam a organizar o acompanhamento.</p></div>
-    <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+    <div class="form-heading">
+        <MudButton Href="pets" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack">Meus pets</MudButton>
+        <span class="section-kicker">Novo registro</span>
+        <h1 id="new-pet-title">Vamos conhecer seu pet</h1>
+        <p>Registre as informações básicas para organizar o acompanhamento.</p>
+    </div>
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync" class="pet-create-form">
         <DataAnnotationsValidator />
         @if (_error is not null) { <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)">@_error</MudAlert> }
-        <MudTextField @bind-Value="_model.Name" For="@(() => _model.Name)" Label="Nome" Required="true" autocomplete="off" />
-        <MudSelect @bind-Value="_model.Species" For="@(() => _model.Species)" Label="Espécie" Required="true">
-            <MudSelectItem Value="@("Dog")">Cão</MudSelectItem>
-            <MudSelectItem Value="@("Cat")">Gato</MudSelectItem>
-        </MudSelect>
-        <MudTextField @bind-Value="_model.Breed" For="@(() => _model.Breed)" Label="Raça (opcional)" autocomplete="off" />
-        <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_dateOfBirth" Label="Data de nascimento (opcional)" />
-        <MudNumericField @bind-Value="_model.CurrentWeight" For="@(() => _model.CurrentWeight)" Label="Peso atual (kg)" Min="0.01m" Max="999.99m" Adornment="Adornment.End" AdornmentText="kg" />
-        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isLoading" FullWidth="true" StartIcon="@Icons.Material.Filled.Save">
-            @(_isLoading ? "Salvando..." : "Salvar pet")
-        </MudButton>
+        <div class="pet-form-section">
+            <span class="form-step">01</span>
+            <div class="pet-form-section-content">
+                <h2>Como ele se chama?</h2>
+                <MudTextField @bind-Value="_model.Name" For="@(() => _model.Name)" Label="Nome do pet" Required="true" autocomplete="off" />
+            </div>
+        </div>
+        <fieldset class="pet-form-section pet-species-section">
+            <legend><span class="form-step">02</span><span>Qual é a espécie?</span></legend>
+            <div class="species-options" role="group" aria-label="Escolha a espécie">
+                <button type="button" class="species-choice @(_model.Species == "Dog" ? "selected" : null)" aria-pressed="@(_model.Species == "Dog")" @onclick='() => SelectSpecies("Dog")'>
+                    <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" />
+                    <strong>Cão</strong>
+                    <span>Cadela</span>
+                </button>
+                <button type="button" class="species-choice @(_model.Species == "Cat" ? "selected" : null)" aria-pressed="@(_model.Species == "Cat")" @onclick='() => SelectSpecies("Cat")'>
+                    <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" />
+                    <strong>Gato</strong>
+                    <span>Gata</span>
+                </button>
+            </div>
+            <ValidationMessage For="@(() => _model.Species)" />
+        </fieldset>
+        <div class="pet-form-section">
+            <span class="form-step">03</span>
+            <div class="pet-form-section-content">
+                <h2>Mais alguns detalhes <small>opcional</small></h2>
+                <MudTextField @bind-Value="_model.Breed" For="@(() => _model.Breed)" Label="Raça" autocomplete="off" />
+                <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_dateOfBirth" Label="Data de nascimento" />
+                <MudNumericField @bind-Value="_model.CurrentWeight" For="@(() => _model.CurrentWeight)" Label="Peso atual" Min="0.01m" Max="999.99m" Adornment="Adornment.End" AdornmentText="kg" />
+            </div>
+        </div>
+        <div class="pet-form-actions">
+            <MudButton Href="pets" Variant="Variant.Outlined" Color="Color.Primary">Cancelar</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isLoading" StartIcon="@Icons.Material.Filled.Save">
+                @(_isLoading ? "Salvando..." : "Salvar pet")
+            </MudButton>
+        </div>
         <ValidationSummary />
     </EditForm>
 </section>
@@ -31,6 +63,8 @@
     private bool _isLoading;
     private bool _offline;
     private string? _error;
+
+    private void SelectSpecies(string species) => _model.Species = species;
 
     private async Task SubmitAsync()
     {

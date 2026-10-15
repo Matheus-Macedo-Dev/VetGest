@@ -33,11 +33,13 @@
     }
     else
     {
-        <div class="page-heading"><div><span class="section-kicker">Registro de observações</span><h1 id="diary-title">Diário de @_pet.Name</h1><p>Registre o que observou, sem substituir uma avaliação veterinária.</p></div><MudButton Href="/" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Today">Voltar para Hoje</MudButton></div>
+        <div class="page-heading"><div><span class="section-kicker">Registro de observações</span><h1 id="diary-title">Diário gestacional</h1><p>Acompanhe os registros de @_pet.Name e compartilhe observações com o veterinário.</p></div><MudButton Href="/" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Today">Voltar para Hoje</MudButton></div>
         <section class="diary-context" aria-label="Contexto da gestação"><MudIcon Icon="@Icons.Material.Filled.PregnantWoman" aria-hidden="true" /><div><strong>Gestação em acompanhamento</strong><span>Previsão estimada: @_pregnancy.EstimatedDueDate.ToString("dd/MM/yyyy")</span></div></section>
 
+        <div class="diary-workspace">
         <EditForm Model="_model" OnValidSubmit="CreateAsync" class="diary-form">
             <DataAnnotationsValidator />
+            <div class="section-heading"><div><span class="section-kicker">Novo registro</span><h2>Como foi o dia?</h2></div><MudIcon Icon="@Icons.Material.Filled.EditNote" aria-hidden="true" /></div>
             @if (_formError is not null) { <MudAlert Severity="@(_isDuplicate ? Severity.Warning : Severity.Error)">@_formError</MudAlert> }
             @if (_validationErrors is not null) { <MudAlert Severity="Severity.Warning"><ValidationSummary />@foreach (var item in _validationErrors) { <div>@string.Join(" ", item.Value)</div> }</MudAlert> }
             <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_entryDate" Label="Data da observação" Required="true" MaxDate="@DateTime.Today" />
@@ -58,6 +60,7 @@
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSubmitting" FullWidth="true" StartIcon="@Icons.Material.Filled.Save">@(_isSubmitting ? "Salvando..." : "Salvar observação")</MudButton>
         </EditForm>
 
+        <div class="diary-sidebar">
         <section class="diary-section" aria-labelledby="trend-title"><div class="section-heading"><div><span class="section-kicker">Resumo acessível</span><h2 id="trend-title">Peso e temperatura</h2></div><MudIcon Icon="@Icons.Material.Filled.Timeline" aria-hidden="true" /></div>
             @if (_trendEntries.Count == 0) { <p class="empty-note">Ainda não há peso ou temperatura registrados para resumir.</p> }
             else { <div class="table-wrap"><table class="trend-table"><caption>Observações com peso ou temperatura, da mais recente para a mais antiga</caption><thead><tr><th scope="col">Data</th><th scope="col">Peso (kg)</th><th scope="col">Temperatura (°C)</th></tr></thead><tbody>@foreach (var entry in _trendEntries) { <tr><th scope="row">@entry.EntryDate.ToString("dd/MM/yyyy")</th><td>@FormatValue(entry.WeightKg, "kg")</td><td>@FormatValue(entry.TemperatureCelsius, "°C")</td></tr>}</tbody></table></div> }
@@ -67,6 +70,8 @@
             @if (_entries.Count == 0) { <p class="empty-note">Nenhuma observação registrada ainda. O primeiro registro pode conter qualquer observação além da data.</p> }
             else { <div class="diary-timeline" role="list">@foreach (var entry in _entries) { <article class="diary-entry" role="listitem"><div class="diary-entry-date"><strong>@entry.EntryDate.ToString("dd")</strong><span>@entry.EntryDate.ToString("MMM", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"))</span><small>@entry.EntryDate.ToString("yyyy")</small></div><div class="diary-entry-body"><div class="entry-meta">@if (entry.WeightKg.HasValue) { <span>@entry.WeightKg.Value.ToString("0.##") kg</span> } @if (entry.TemperatureCelsius.HasValue) { <span>@entry.TemperatureCelsius.Value.ToString("0.##") °C</span> } @if (!string.IsNullOrWhiteSpace(entry.Appetite)) { <span>Apetite: @AppetiteLabel(entry.Appetite)</span> }</div>@if (!string.IsNullOrWhiteSpace(entry.Behavior)) { <p><strong>Comportamento:</strong> @entry.Behavior</p> }@if (entry.Symptoms.Length > 0) { <p><strong>Observações:</strong> @string.Join(", ", entry.Symptoms)</p> }@if (!string.IsNullOrWhiteSpace(entry.Notes)) { <p>@entry.Notes</p> }@if (entry.PhotoReferences.Length > 0) { <p class="reference-note"><MudIcon Icon="@Icons.Material.Filled.Link" aria-hidden="true" /> @entry.PhotoReferences.Length referência(s) de foto</p> }</div></article> }</div> }
         </section>
+        </div>
+        </div>
     }
 </section>
 

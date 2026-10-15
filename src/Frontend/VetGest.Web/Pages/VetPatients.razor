@@ -24,13 +24,16 @@
         <div class="connection-items" role="list">
             @foreach (var patient in _patients)
             {
-                <article class="connection-item" role="listitem">
-                    <div>
-                        <h3>@patient.PetName <small>(@SpeciesLabel(patient.Species))</small></h3>
-                        <p>Tutor: @patient.TutorName</p>
-                        <p>Parto estimado: @patient.EstimatedDueDate.ToString("dd/MM/yyyy")</p>
+                <article class="vet-patient-card" role="listitem">
+                    <div class="vet-patient-identity">
+                        <span class="vet-patient-avatar" aria-hidden="true"><MudIcon Icon="@Icons.Material.Filled.Pets" /></span>
+                        <div><span class="section-kicker">Gestação compartilhada</span><h3>@patient.PetName</h3><p>@SpeciesLabel(patient.Species)</p></div>
                     </div>
-                    <div>
+                    <div class="vet-patient-meta">
+                        <div><span>Tutor</span><strong>@patient.TutorName</strong></div>
+                        <div><span>Parto estimado</span><strong>@patient.EstimatedDueDate.ToString("dd/MM/yyyy")</strong></div>
+                    </div>
+                    <div class="vet-patient-actions">
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Href=@($"vet/patients/{patient.ConnectionId}") StartIcon="@Icons.Material.Filled.MenuBook">Ver diário</MudButton>
                         <MudButton Variant="Variant.Text" Color="Color.Primary" Href="chat" StartIcon="@Icons.Material.Filled.Chat">Chat</MudButton>
                     </div>

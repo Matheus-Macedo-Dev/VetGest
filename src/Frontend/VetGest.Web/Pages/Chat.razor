@@ -34,47 +34,77 @@
     }
     else
     {
-        <MudSelect T="Guid" Value="_selectedId" ValueChanged="SelectAsync" Label="Conversa" Class="mt-2">
-            @foreach (var connection in _connections)
-            {
-                <MudSelectItem Value="@connection.Id">@Label(connection)</MudSelectItem>
-            }
-        </MudSelect>
-
-        @if (_chatError is not null)
-        {
-            <MudAlert Severity="Severity.Error">@_chatError</MudAlert>
-        }
-        @if (_closed)
-        {
-            <MudAlert Severity="Severity.Info">Esta conexão foi encerrada. O chat não está mais disponível.</MudAlert>
-        }
-        @if (_state != HubConnectionState.Connected && !_closed)
-        {
-            <MudAlert Severity="Severity.Warning" Dense="true">Reconectando ao chat...</MudAlert>
-        }
-
-        <div class="chat-panel" role="log" aria-live="polite" aria-label="Mensagens da conversa" style="max-height:50vh;overflow-y:auto;padding:.75rem;border:1px solid var(--mud-palette-divider);border-radius:8px;margin:.75rem 0;">
-            @if (CurrentMessages.Count == 0)
-            {
-                <p class="empty-note">Nenhuma mensagem nesta sessão.</p>
-            }
-            @foreach (var message in CurrentMessages)
-            {
-                var mine = message.SenderUserId == _userId;
-                <div style="display:flex;justify-content:@(mine ? "flex-end" : "flex-start");margin-bottom:.5rem;">
-                    <div style="max-width:80%;padding:.5rem .75rem;border-radius:12px;background:@(mine ? "var(--mud-palette-primary)" : "var(--mud-palette-surface)");color:@(mine ? "#fff" : "inherit");border:1px solid var(--mud-palette-divider);">
-                        <small>@(mine ? "Você" : message.SenderName) · @message.SentAtUtc.ToLocalTime().ToString("HH:mm")</small>
-                        <div style="white-space:pre-wrap;word-break:break-word;">@message.Text</div>
-                    </div>
+        <div class="chat-workspace">
+            <aside class="chat-sidebar" aria-label="Conversas ativas">
+                <div class="chat-sidebar-heading">
+                    <div><span class="section-kicker">Mensagens</span><h2>Conversas</h2></div>
+                    <span class="chat-conversation-count">@_connections.Count</span>
                 </div>
-            }
-        </div>
+                <div class="chat-conversation-list" role="list">
+                    @foreach (var connection in _connections)
+                    {
+                        var unreadCount = Notifications.UnreadFor(connection.Id);
+                        <div role="listitem">
+                            <button type="button" class="chat-conversation-item @(_selectedId == connection.Id ? "selected" : null)" aria-pressed="@(_selectedId == connection.Id)" @onclick="() => SelectAsync(connection.Id)">
+                                <span class="chat-contact-avatar" aria-hidden="true"><MudIcon Icon="@Icons.Material.Filled.Person" /></span>
+                                <span class="chat-conversation-copy">
+                                    <strong>@Label(connection)</strong>
+                                    <small>@(unreadCount > 0 ? "Nova mensagem" : "Conexão ativa")</small>
+                                </span>
+                                @if (unreadCount > 0)
+                                {
+                                    <span class="chat-unread-count" aria-label="@($"{unreadCount} mensagens não lidas")">@unreadCount</span>
+                                }
+                            </button>
+                        </div>
+                    }
+                </div>
+            </aside>
 
-        <EditForm Model="this" OnSubmit="SendAsync">
-            <MudTextField @bind-Value="_text" Label="Mensagem" MaxLength="@ChatHubMethods.MaxMessageLength" Disabled="@(_closed || _state != HubConnectionState.Connected)" Immediate="true" autocomplete="off" />
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_closed || _sending || string.IsNullOrWhiteSpace(_text) || _state != HubConnectionState.Connected)" StartIcon="@Icons.Material.Filled.Send">Enviar</MudButton>
-        </EditForm>
+            <section class="chat-conversation" aria-label="Conversa selecionada">
+                @if (_connections.FirstOrDefault(item => item.Id == _selectedId) is { } selectedConnection)
+                {
+                    <header class="chat-conversation-header">
+                        <span class="chat-contact-avatar" aria-hidden="true"><MudIcon Icon="@Icons.Material.Filled.Person" /></span>
+                        <div><strong>@Label(selectedConnection)</strong><span>@(_closed ? "Conexão encerrada" : _state == HubConnectionState.Connected ? "Conectado" : "Reconectando…")</span></div>
+                    </header>
+                }
+                @if (_chatError is not null)
+                {
+                    <MudAlert Severity="Severity.Error">@_chatError</MudAlert>
+                }
+                @if (_closed)
+                {
+                    <MudAlert Severity="Severity.Info">Esta conexão foi encerrada. O chat não está mais disponível.</MudAlert>
+                }
+                @if (_state != HubConnectionState.Connected && !_closed)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true">Reconectando ao chat...</MudAlert>
+                }
+
+                <div class="chat-panel" role="log" aria-live="polite" aria-label="Mensagens da conversa">
+                    @if (CurrentMessages.Count == 0)
+                    {
+                        <p class="empty-note">Nenhuma mensagem nesta sessão.</p>
+                    }
+                    @foreach (var message in CurrentMessages)
+                    {
+                        var mine = message.SenderUserId == _userId;
+                        <div class="chat-message-row @(mine ? "chat-message-row--own" : null)">
+                            <div class="chat-message @(mine ? "chat-message--own" : null)">
+                                <small>@(mine ? "Você" : message.SenderName) · @message.SentAtUtc.ToLocalTime().ToString("HH:mm")</small>
+                                <div class="chat-message-text">@message.Text</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <EditForm Model="this" OnSubmit="SendAsync" class="chat-composer">
+                    <MudTextField @bind-Value="_text" Label="Mensagem" MaxLength="@ChatHubMethods.MaxMessageLength" Disabled="@(_closed || _state != HubConnectionState.Connected)" Immediate="true" autocomplete="off" />
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_closed || _sending || string.IsNullOrWhiteSpace(_text) || _state != HubConnectionState.Connected)" StartIcon="@Icons.Material.Filled.Send">Enviar</MudButton>
+                </EditForm>
+            </section>
+        </div>
     }
 </section>
 
@@ -218,8 +248,7 @@
     {
         var who = connection.VetUserId == _userId ? connection.TutorName : connection.VetName;
         var label = string.IsNullOrWhiteSpace(connection.PetName) ? who ?? "—" : $"{who} · {connection.PetName}";
-        var unread = Notifications.UnreadFor(connection.Id);
-        return unread > 0 ? $"{label} ({unread} nova(s))" : label;
+        return label;
     }
 
     public async ValueTask DisposeAsync()

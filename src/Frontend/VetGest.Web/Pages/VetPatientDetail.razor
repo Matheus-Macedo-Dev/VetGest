@@ -20,7 +20,13 @@
     else if (_detail is not null)
     {
         var patient = _detail.Patient;
-        <div class="page-heading"><div><span class="section-kicker">Registros do tutor · somente leitura</span><h1 id="patient-title">@patient.PetName</h1><p>Tutor: @patient.TutorName · Parto estimado: @patient.EstimatedDueDate.ToString("dd/MM/yyyy")</p></div><div><MudButton Href="vet/patients" Variant="Variant.Outlined" Color="Color.Primary">Pacientes</MudButton> <MudButton Href="chat" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Chat">Chat</MudButton></div></div>
+        <div class="page-heading"><div><span class="section-kicker">Registros compartilhados · somente leitura</span><h1 id="patient-title">@patient.PetName</h1><p>Consulte os registros informados pelo tutor. Os dados não podem ser alterados nesta tela.</p></div><div class="patient-detail-actions"><MudButton Href="vet/patients" Variant="Variant.Outlined" Color="Color.Primary">Pacientes</MudButton> <MudButton Href="chat" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Chat">Chat</MudButton></div></div>
+        <div class="patient-summary-grid" aria-label="Resumo do paciente">
+            <div><span>Espécie</span><strong>@SpeciesLabel(patient.Species)</strong></div>
+            <div><span>Tutor</span><strong>@patient.TutorName</strong></div>
+            <div><span>Parto estimado</span><strong>@patient.EstimatedDueDate.ToString("dd/MM/yyyy")</strong></div>
+            <div class="patient-readonly-label"><MudIcon Icon="@Icons.Material.Filled.Visibility" aria-hidden="true" /><span>Somente leitura</span></div>
+        </div>
         <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">@_detail.Notice</MudAlert>
 
         @if (_detail.Diary.Count == 0)
@@ -32,15 +38,15 @@
             <div class="diary-entries" role="list">
                 @foreach (var entry in _detail.Diary.OrderByDescending(item => item.EntryDate))
                 {
-                    <article class="connection-item" role="listitem">
-                        <div>
-                            <h3>@entry.EntryDate.ToString("dd/MM/yyyy")</h3>
-                            <p>
+                    <article class="patient-diary-entry" role="listitem">
+                        <div class="patient-diary-date"><MudIcon Icon="@Icons.Material.Filled.CalendarMonth" aria-hidden="true" /><strong>@entry.EntryDate.ToString("dd/MM/yyyy")</strong></div>
+                        <div class="patient-diary-content">
+                            <div class="patient-diary-vitals">
                                 @if (entry.WeightKg is not null) { <span>Peso: @entry.WeightKg kg · </span> }
                                 @if (entry.TemperatureCelsius is not null) { <span>Temperatura: @entry.TemperatureCelsius °C · </span> }
                                 @if (!string.IsNullOrWhiteSpace(entry.Appetite)) { <span>Apetite: @entry.Appetite · </span> }
                                 @if (!string.IsNullOrWhiteSpace(entry.Behavior)) { <span>Comportamento: @entry.Behavior</span> }
-                            </p>
+                            </div>
                             @if (entry.Symptoms.Length > 0) { <p><strong>Sintomas:</strong> @string.Join(", ", entry.Symptoms)</p> }
                             @if (!string.IsNullOrWhiteSpace(entry.Notes)) { <p><strong>Observações:</strong> @entry.Notes</p> }
                         </div>
@@ -61,6 +67,13 @@
     private bool _notFound;
 
     protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private static string SpeciesLabel(string species) => species switch
+    {
+        "Dog" => "Cão",
+        "Cat" => "Gato",
+        _ => species
+    };
 
     private async Task LoadAsync()
     {

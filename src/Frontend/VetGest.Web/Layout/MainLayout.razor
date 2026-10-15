@@ -1,17 +1,19 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @implements IDisposable
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ChatNotificationService Notifications
+@inject NavigationManager Navigation
 <MudThemeProvider Theme="@Theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<div class="app-shell">
+<div class="app-shell @(_isAuthPage ? "app-shell--auth" : null)">
+    @if (!_isAuthPage)
+    {
     <header class="app-topbar">
         <a class="app-brand" href="" aria-label="VetGest, página inicial">
-            <span class="brand-mark" aria-hidden="true">V</span>
-            <span><strong>Vet</strong>Gest</span>
+            <VetGestBrand Compact="true" />
         </a>
         <div class="app-topbar-actions">
             <ChatBell />
@@ -26,8 +28,11 @@
     <aside id="app-drawer" class="app-sidebar @(_drawerOpen ? "open" : null)" @onkeydown="OnDrawerKeyDown">
         <NavMenu OnClose="CloseDrawerAsync" @ref="_navMenu" />
     </aside>
+    }
 
     <main class="app-main">
+        @if (!_isAuthPage)
+        {
         <header class="app-header">
             <div>
                 <p class="eyebrow">VETGEST · ESPAÇO DE CUIDADO</p>
@@ -38,21 +43,31 @@
             </div>
             <ChatBell />
         </header>
+        }
 
         <article class="app-content">
             @Body
         </article>
     </main>
+
+    @if (!_isAuthPage)
+    {
+        <MobileBottomNav />
+    }
 </div>
 
 @code {
     private bool _drawerOpen;
+    private bool _isAuthPage;
+    private bool _isAuthenticated;
     private bool _focusDrawerAfterRender;
     private ElementReference _toggleButton;
     private NavMenu? _navMenu;
 
     protected override async Task OnInitializedAsync()
     {
+        UpdateAuthPageState();
+        Navigation.LocationChanged += OnLocationChanged;
         AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
         await SyncNotificationsAsync(AuthenticationStateProvider.GetAuthenticationStateAsync());
     }
@@ -96,16 +111,39 @@
     private void OnAuthenticationStateChanged(Task<AuthenticationState> authState) =>
         _ = InvokeAsync(() => SyncNotificationsAsync(authState));
 
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args) =>
+        _ = InvokeAsync(() =>
+        {
+            UpdateAuthPageState();
+            StateHasChanged();
+        });
+
+    private void UpdateAuthPageState()
+    {
+        var route = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].TrimEnd('/');
+        _isAuthPage = route.Equals("login", StringComparison.OrdinalIgnoreCase)
+            || route.Equals("register", StringComparison.OrdinalIgnoreCase)
+            || route.Equals("definir-senha", StringComparison.OrdinalIgnoreCase)
+            || (route.Length == 0 && !_isAuthenticated);
+    }
+
     private async Task SyncNotificationsAsync(Task<AuthenticationState> authState)
     {
         var user = (await authState).User;
-        if (user.Identity?.IsAuthenticated == true && (user.IsInRole("Vet") || user.IsInRole("Tutor")))
+        _isAuthenticated = user.Identity?.IsAuthenticated == true;
+        UpdateAuthPageState();
+
+        if (_isAuthenticated && (user.IsInRole("Vet") || user.IsInRole("Tutor")))
             await Notifications.StartAsync();
         else
             Notifications.Stop();
     }
 
-    public void Dispose() => AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+    public void Dispose()
+    {
+        AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
     private static readonly MudTheme Theme = new()
     {
         PaletteLight = new PaletteLight

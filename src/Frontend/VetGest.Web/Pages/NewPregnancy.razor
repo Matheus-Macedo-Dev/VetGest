@@ -27,17 +27,31 @@
     }
     else
     {
-        <div class="form-heading"><span class="section-kicker">Novo acompanhamento</span><h1 id="pregnancy-title">Registrar gestação</h1><p>Pet selecionado: <strong>@_pet.Name</strong> · @_pet.Species. O servidor calcula a previsão e a fase.</p></div>
-        <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+        <div class="form-heading">
+            <MudButton Href="pets" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack">Meus pets</MudButton>
+            <span class="section-kicker">Novo acompanhamento</span>
+            <h1 id="pregnancy-title">Registrar gestação</h1>
+            <p>Pet selecionado: <strong>@_pet.Name</strong> · @_pet.Species. Informe as datas disponíveis para calcular uma previsão.</p>
+        </div>
+        <EditForm Model="_model" OnValidSubmit="SubmitAsync" class="pregnancy-form">
             <DataAnnotationsValidator />
             @if (_error is not null) { <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)" ShowCloseIcon="true">@_error</MudAlert> }
             @if (_validationErrors is not null) { <MudAlert Severity="Severity.Warning"><ValidationSummary />@foreach (var item in _validationErrors) { <div>@string.Join(" ", item.Value)</div> }</MudAlert> }
-            <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_matingDate" Label="Data de cobertura (obrigatória)" Required="true" />
-            <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_ovulationDate" Label="Data de ovulação/progesterona (opcional)" />
-            <p class="form-hint">Quando informada, a data de ovulação/progesterona será priorizada pelo cálculo do servidor em relação à data de cobertura.</p>
-            <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_confirmedAt" Label="Data de confirmação (opcional)" />
-            <MudTextField @bind-Value="_model.Notes" For="@(() => _model.Notes)" Label="Observações (opcional)" Lines="4" MaxLength="1000" />
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSubmitting" FullWidth="true" StartIcon="@Icons.Material.Filled.Save">@(_isSubmitting ? "Calculando..." : "Registrar gestação")</MudButton>
+            <section class="pregnancy-form-section">
+                <div class="pregnancy-section-heading"><span class="form-step">01</span><div><h2>Datas para o cálculo</h2><p>Informe a data de cobertura e, se souber, a de ovulação.</p></div></div>
+                <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_matingDate" Label="Data de cobertura (obrigatória)" Required="true" />
+                <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_ovulationDate" Label="Data de ovulação/progesterona (opcional)" />
+                <p class="form-hint">Quando informada, a data de ovulação/progesterona será priorizada pelo cálculo do servidor em relação à data de cobertura.</p>
+            </section>
+            <section class="pregnancy-form-section">
+                <div class="pregnancy-section-heading"><span class="form-step">02</span><div><h2>Confirmação e observações</h2><p>Adicione detalhes que ajudam a contextualizar o registro.</p></div></div>
+                <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_confirmedAt" Label="Data de confirmação (opcional)" />
+                <MudTextField @bind-Value="_model.Notes" For="@(() => _model.Notes)" Label="Observações (opcional)" Lines="4" MaxLength="1000" />
+            </section>
+            <div class="pregnancy-form-footer">
+                <p><MudIcon Icon="@Icons.Material.Filled.Info" aria-hidden="true" /> A previsão é estimada. O cálculo e sua base serão mostrados após salvar.</p>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSubmitting" FullWidth="true" StartIcon="@Icons.Material.Filled.Save">@(_isSubmitting ? "Calculando..." : "Calcular previsão")</MudButton>
+            </div>
             <ValidationSummary />
         </EditForm>
     }

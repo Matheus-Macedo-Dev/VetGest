@@ -5,9 +5,10 @@
 
 <PageTitle>Entrar | VetGest</PageTitle>
 
-<section class="form-page" aria-labelledby="login-title">
-    <div class="form-heading"><span class="section-kicker">Acesso seguro</span><h1 id="login-title">Bem-vindo de volta</h1><p>Entre para acessar seus pets e seus registros privados.</p></div>
-    <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+<section class="form-page auth-page auth-page--login" aria-labelledby="login-title">
+    <header class="auth-brand"><VetGestBrand ShowTagline="true" /></header>
+    <div class="form-heading"><h1 id="login-title">Que bom ter você de volta</h1><p>Entre para continuar acompanhando seus pets.</p></div>
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync" class="auth-form">
         <DataAnnotationsValidator />
         @if (_error is not null) { <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)">@_error</MudAlert> }
         @if (_showCreateAccountTip)
@@ -16,9 +17,15 @@
                 Primeira vez no VetGest? <a href="register">Crie sua conta de tutor</a> para começar.
             </MudAlert>
         }
-        <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="E-mail" InputType="InputType.Email" Required="true" autocomplete="email" />
-        <MudTextField @bind-Value="_model.Password" For="@(() => _model.Password)" Label="Senha" InputType="InputType.Password" Required="true" autocomplete="current-password" />
-        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanSubmit)" FullWidth="true" StartIcon="@Icons.Material.Filled.Login">
+        <div class="auth-field">
+            <label class="auth-field-label">E-mail*</label>
+            <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="" aria-label="E-mail" Placeholder="seu@email.com" InputType="InputType.Email" Required="true" autocomplete="email" />
+        </div>
+        <div class="auth-field">
+            <label class="auth-field-label">Senha*</label>
+            <MudTextField @bind-Value="_model.Password" For="@(() => _model.Password)" Label="" aria-label="Senha" InputType="@(_showPassword ? InputType.Text : InputType.Password)" Required="true" autocomplete="current-password" Adornment="Adornment.End" AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)" OnAdornmentClick="TogglePasswordVisibility" AdornmentAriaLabel="Mostrar ou ocultar senha" />
+        </div>
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanSubmit)" FullWidth="true">
             @if (_isLoading)
             {
                 <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Inherit" Class="button-inline-spinner" />
@@ -31,17 +38,20 @@
         </MudButton>
         @if (!_isLoading && !CanSubmit)
         {
-            <p class="form-hint form-hint-warning">Informe e-mail e senha para continuar.</p>
+            <p class="form-hint form-hint-warning auth-login-hint">Informe e-mail e senha para continuar.</p>
         }
         <ValidationSummary />
     </EditForm>
-    <p class="form-footer">Ainda não tem conta? <a href="register">Crie uma conta de tutor</a></p>
+    <div class="auth-divider"><span>ou</span></div>
+    <div class="auth-register-prompt"><span>Ainda não tem conta?</span><MudButton Href="register" Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true">Criar conta</MudButton></div>
+    <div class="auth-safety-note"><MudIcon Icon="@Icons.Material.Filled.Lock" aria-hidden="true" /><span>Seus dados e registros ficam protegidos na sua conta.</span></div>
 </section>
 
 @code {
     private readonly LoginRequest _model = new();
     private bool _isLoading;
     private bool _offline;
+    private bool _showPassword;
     private bool _showCreateAccountTip;
     private string? _returnUrl;
     private string? _error;
@@ -50,6 +60,8 @@
         !_isLoading &&
         !string.IsNullOrWhiteSpace(_model.Email) &&
         !string.IsNullOrWhiteSpace(_model.Password);
+
+    private void TogglePasswordVisibility() => _showPassword = !_showPassword;
 
     protected override void OnInitialized()
     {

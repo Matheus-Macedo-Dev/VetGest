@@ -37,28 +37,25 @@
     }
     else
     {
-        <MudSimpleTable Dense="true" Hover="true">
-            <thead><tr><th>Nome</th><th>E-mail</th><th>CRMV</th><th>Situação</th><th>Ações</th></tr></thead>
-            <tbody>
+        <div class="admin-account-list" role="list" aria-label="Contas veterinárias">
                 @foreach (var vet in _vets)
                 {
-                    <tr>
-                        <td data-label="Nome">@vet.FullName</td>
-                        <td data-label="E-mail">@vet.Email</td>
-                        <td data-label="CRMV">@vet.Crmv</td>
-                        <td data-label="Situação">@AdminVetCatalog.StatusLabel(vet)</td>
-                        <td data-label="Ações">
-                            <MudTooltip Text="Ver dados">
-                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" aria-label="@($"Ver dados de {vet.FullName}")" OnClick="() => OpenDetailsAsync(vet)" />
-                            </MudTooltip>
-                            <MudTooltip Text="@(vet.IsActive ? "Desativar conta" : "Reativar conta")">
-                                <MudIconButton Icon="@(vet.IsActive ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)" Color="@(vet.IsActive ? Color.Error : Color.Success)" Size="Size.Small" Disabled="@_busyIds.Contains(vet.UserId)" aria-label="@((vet.IsActive ? "Desativar " : "Reativar ") + vet.FullName)" OnClick="() => ToggleActiveAsync(vet)" />
-                            </MudTooltip>
-                        </td>
-                    </tr>
+                    <article class="admin-account-card" role="listitem">
+                        <div class="admin-account-identity">
+                            <span class="admin-account-avatar" aria-hidden="true"><MudIcon Icon="@Icons.Material.Filled.MedicalServices" /></span>
+                            <div><h2>@vet.FullName</h2><span>@vet.Email</span></div>
+                        </div>
+                        <div class="admin-account-meta">
+                            <div><span>CRMV</span><strong>@vet.Crmv</strong></div>
+                            <span class="admin-account-status @(vet.IsActive ? "is-active" : "is-inactive")">@AdminVetCatalog.StatusLabel(vet)</span>
+                        </div>
+                        <div class="admin-account-actions">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Visibility" OnClick="() => OpenDetailsAsync(vet)">Ver dados</MudButton>
+                            <MudButton Variant="Variant.Text" Color="@(vet.IsActive ? Color.Error : Color.Success)" Disabled="@_busyIds.Contains(vet.UserId)" StartIcon="@(vet.IsActive ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)" OnClick="() => ToggleActiveAsync(vet)">@(vet.IsActive ? "Desativar" : "Reativar")</MudButton>
+                        </div>
+                    </article>
                 }
-            </tbody>
-        </MudSimpleTable>
+        </div>
     }
 </section>
 

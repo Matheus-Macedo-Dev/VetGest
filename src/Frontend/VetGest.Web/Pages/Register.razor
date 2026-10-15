@@ -5,9 +5,10 @@
 
 <PageTitle>Criar conta | VetGest</PageTitle>
 
-<section class="form-page" aria-labelledby="register-title">
-    <div class="form-heading"><span class="section-kicker">Conta de tutor</span><h1 id="register-title">Comece pelo cuidado</h1><p>Crie uma conta para registrar seus pets. Contas de veterinário são criadas pela equipe VetGest após a conferência do CRMV.</p></div>
-    <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+<section class="form-page auth-page auth-page--register" aria-labelledby="register-title">
+    <header class="auth-brand"><VetGestBrand ShowTagline="true" /></header>
+    <div class="form-heading"><span class="section-kicker">Conta de tutor</span><h1 id="register-title">Vamos começar 🐾</h1><p>Crie sua conta para registrar seus pets e organizar o acompanhamento.</p></div>
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync" class="auth-form">
         <DataAnnotationsValidator />
         @if (_error is not null) { <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)">@_error</MudAlert> }
         @if (_validationErrors is not null)
@@ -22,22 +23,32 @@
                 </ul>
             </MudAlert>
         }
-        <MudTextField @bind-Value="_model.FullName" For="@(() => _model.FullName)" Label="Nome completo" Required="true" autocomplete="name" />
-        <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="E-mail" InputType="InputType.Email" Required="true" autocomplete="email" />
-        <MudTextField @bind-Value="Password"
-                      For="@(() => _model.Password)"
-                      Label="Senha"
-                      InputType="@(_showPassword ? InputType.Text : InputType.Password)"
-                      Required="true"
-                      autocomplete="new-password"
-                      HelperText="Use pelo menos 8 caracteres."
-                      Immediate="true"
-                      OnKeyUp="HandlePasswordKeyUp"
-                      OnBlur="HandlePasswordBlur"
-                      Adornment="Adornment.End"
-                      AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
-                      OnAdornmentClick="TogglePasswordVisibility"
-                      AdornmentAriaLabel="Mostrar ou ocultar senha" />
+        <div class="auth-field">
+            <label class="auth-field-label">Nome completo*</label>
+            <MudTextField @bind-Value="_model.FullName" For="@(() => _model.FullName)" Label="" aria-label="Nome completo" Required="true" autocomplete="name" />
+        </div>
+        <div class="auth-field">
+            <label class="auth-field-label">E-mail*</label>
+            <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="" aria-label="E-mail" InputType="InputType.Email" Required="true" autocomplete="email" />
+        </div>
+        <div class="auth-field">
+            <label class="auth-field-label">Senha*</label>
+            <MudTextField @bind-Value="Password"
+                          For="@(() => _model.Password)"
+                          Label=""
+                          aria-label="Senha"
+                          InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                          Required="true"
+                          autocomplete="new-password"
+                          HelperText="Use pelo menos 8 caracteres."
+                          Immediate="true"
+                          OnKeyUp="HandlePasswordKeyUp"
+                          OnBlur="HandlePasswordBlur"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                          OnAdornmentClick="TogglePasswordVisibility"
+                          AdornmentAriaLabel="Mostrar ou ocultar senha" />
+        </div>
         <PasswordStrengthMeter Password="@_model.Password" />
         @if (_showCapsLockWarning)
         {
@@ -45,19 +56,23 @@
                 <MudIcon Icon="@Icons.Material.Filled.KeyboardCapslock" aria-hidden="true" /> Caps Lock pode estar ativado.
             </p>
         }
-        <MudTextField @bind-Value="_model.ConfirmPassword"
-                      For="@(() => _model.ConfirmPassword)"
-                      Label="Confirme a senha"
-                      InputType="@(_showConfirmPassword ? InputType.Text : InputType.Password)"
-                      Required="true"
-                      autocomplete="new-password"
-                      Immediate="true"
-                      OnKeyUp="HandleConfirmPasswordKeyUp"
-                      OnBlur="HandleConfirmPasswordBlur"
-                      Adornment="Adornment.End"
-                      AdornmentIcon="@(_showConfirmPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
-                      OnAdornmentClick="ToggleConfirmPasswordVisibility"
-                      AdornmentAriaLabel="Mostrar ou ocultar confirmação de senha" />
+        <div class="auth-field">
+            <label class="auth-field-label">Confirme a senha*</label>
+            <MudTextField @bind-Value="_model.ConfirmPassword"
+                          For="@(() => _model.ConfirmPassword)"
+                          Label=""
+                          aria-label="Confirme a senha"
+                          InputType="@(_showConfirmPassword ? InputType.Text : InputType.Password)"
+                          Required="true"
+                          autocomplete="new-password"
+                          Immediate="true"
+                          OnKeyUp="HandleConfirmPasswordKeyUp"
+                          OnBlur="HandleConfirmPasswordBlur"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@(_showConfirmPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                          OnAdornmentClick="ToggleConfirmPasswordVisibility"
+                          AdornmentAriaLabel="Mostrar ou ocultar confirmação de senha" />
+        </div>
         <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanSubmit)" FullWidth="true" StartIcon="@Icons.Material.Filled.PersonAdd">
             @(_isLoading ? "Criando conta..." : "Criar conta de tutor")
         </MudButton>
@@ -69,11 +84,12 @@
         }
         else if (!CanSubmit)
         {
-            <p class="form-hint form-hint-warning">@SubmitDisabledReason</p>
+            <p class="form-hint form-hint-warning auth-register-hint">@SubmitDisabledReason</p>
         }
         <ValidationSummary />
     </EditForm>
-    <p class="form-footer">Já tem uma conta? <a href="login">Entre aqui</a></p>
+    <div class="auth-register-prompt"><span>Já tem uma conta?</span><MudButton Href="login" Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true">Entrar</MudButton></div>
+    <div class="auth-safety-note"><MudIcon Icon="@Icons.Material.Filled.Info" aria-hidden="true" /><span>Contas de veterinário são criadas pela equipe VetGest após conferência do CRMV.</span></div>
 </section>
 
 @code {

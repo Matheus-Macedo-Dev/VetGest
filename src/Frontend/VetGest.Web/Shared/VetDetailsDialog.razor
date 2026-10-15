@@ -4,13 +4,19 @@
 
 <MudDialog>
     <DialogContent>
-        <MudTextField Value="Vet.FullName" Label="Nome completo" ReadOnly="true" />
-        <MudTextField Value="Vet.Email" Label="E-mail" ReadOnly="true" />
-        <MudTextField Value="Vet.CrmvNumber" Label="Número do CRMV" ReadOnly="true" />
-        <MudTextField Value="Vet.CrmvState" Label="UF do CRMV" ReadOnly="true" />
-        <MudTextField Value="@AdminVetCatalog.StatusLabel(Vet)" Label="Situação da conta" ReadOnly="true" />
-        <MudTextField Value="@Vet.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")" Label="Conta criada em" ReadOnly="true" />
-        <MudTextField Value="@(Vet.CrmvCheckedAt is null ? "—" : Vet.CrmvCheckedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))" Label="CRMV conferido no CFMV em" ReadOnly="true" />
+        <div class="admin-detail-header">
+            <MudAvatar Color="Color.Primary"><MudIcon Icon="@Icons.Material.Filled.MedicalServices" /></MudAvatar>
+            <div><span class="section-kicker">Perfil veterinário</span><strong>@Vet.FullName</strong><span>@Vet.Email</span></div>
+        </div>
+        <div class="admin-detail-fields">
+            <MudTextField Value="Vet.FullName" Label="Nome completo" ReadOnly="true" />
+            <MudTextField Value="Vet.Email" Label="E-mail" ReadOnly="true" />
+            <MudTextField Value="Vet.CrmvNumber" Label="Número do CRMV" ReadOnly="true" />
+            <MudTextField Value="Vet.CrmvState" Label="UF do CRMV" ReadOnly="true" />
+            <MudTextField Value="@AdminVetCatalog.StatusLabel(Vet)" Label="Situação da conta" ReadOnly="true" />
+            <MudTextField Value="@Vet.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")" Label="Conta criada em" ReadOnly="true" />
+            <MudTextField Value="@(Vet.CrmvCheckedAt is null ? "—" : Vet.CrmvCheckedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))" Label="CRMV conferido no CFMV em" ReadOnly="true" />
+        </div>
 
         @if (_setupUrl is not null)
         {

@@ -1,0 +1,70 @@
+@inject ChatNotificationService Notifications
+
+<AuthorizeView Roles="Tutor" Context="tutorContext">
+    <Authorized>
+        <nav class="mobile-bottom-nav mobile-bottom-nav--tutor" aria-label="Navegação rápida">
+            <NavLink class="mobile-bottom-link" href="" Match="NavLinkMatch.All">
+                <MudIcon Icon="@Icons.Material.Filled.Today" aria-hidden="true" />
+                <span>Hoje</span>
+            </NavLink>
+            <NavLink class="mobile-bottom-link" href="pets" Match="NavLinkMatch.All">
+                <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" />
+                <span>Pets</span>
+            </NavLink>
+            <NavLink class="mobile-bottom-link mobile-bottom-link--create" href="pets/new" aria-label="Cadastrar pet">
+                <span class="mobile-bottom-create-icon"><MudIcon Icon="@Icons.Material.Filled.Add" aria-hidden="true" /></span>
+                <span>Novo</span>
+            </NavLink>
+            <NavLink class="mobile-bottom-link" href="diary">
+                <MudIcon Icon="@Icons.Material.Filled.MenuBook" aria-hidden="true" />
+                <span>Diário</span>
+            </NavLink>
+            <NavLink class="mobile-bottom-link mobile-bottom-link--chat" href="chat">
+                <MudIcon Icon="@Icons.Material.Filled.Chat" aria-hidden="true" />
+                <span>Chat</span>
+                @if (Notifications.TotalUnread > 0)
+                {
+                    <span class="count-badge" aria-label="@Notifications.TotalUnread não lidas">@Notifications.TotalUnread</span>
+                }
+            </NavLink>
+        </nav>
+    </Authorized>
+</AuthorizeView>
+
+<AuthorizeView Roles="Vet" Context="vetContext">
+    <Authorized>
+        <nav class="mobile-bottom-nav mobile-bottom-nav--vet" aria-label="Navegação rápida">
+            <NavLink class="mobile-bottom-link" href="vet-connection">
+                <MudIcon Icon="@Icons.Material.Filled.Link" aria-hidden="true" />
+                <span>Conexões</span>
+            </NavLink>
+            <NavLink class="mobile-bottom-link" href="vet/patients">
+                <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" />
+                <span>Pacientes</span>
+            </NavLink>
+            <NavLink class="mobile-bottom-link mobile-bottom-link--chat" href="chat">
+                <MudIcon Icon="@Icons.Material.Filled.Chat" aria-hidden="true" />
+                <span>Chat</span>
+                @if (Notifications.TotalUnread > 0)
+                {
+                    <span class="count-badge" aria-label="@Notifications.TotalUnread não lidas">@Notifications.TotalUnread</span>
+                }
+            </NavLink>
+        </nav>
+    </Authorized>
+</AuthorizeView>
+
+<AuthorizeView Roles="Admin" Context="adminContext">
+    <Authorized>
+        <nav class="mobile-bottom-nav mobile-bottom-nav--admin" aria-label="Navegação rápida">
+            <NavLink class="mobile-bottom-link" href="admin/vets">
+                <MudIcon Icon="@Icons.Material.Filled.MedicalServices" aria-hidden="true" />
+                <span>Veterinários</span>
+            </NavLink>
+            <NavLink class="mobile-bottom-link" href="admin/tutors">
+                <MudIcon Icon="@Icons.Material.Filled.Groups" aria-hidden="true" />
+                <span>Tutores</span>
+            </NavLink>
+        </nav>
+    </Authorized>
+</AuthorizeView>
