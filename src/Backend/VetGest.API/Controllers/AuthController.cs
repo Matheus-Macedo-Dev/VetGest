@@ -11,8 +11,19 @@ namespace VetGest.API.Controllers;
 public sealed class AuthController : ControllerBase
 {
     private readonly AuthService _authService;
+    private readonly IPasswordTransportProtector _passwordProtector;
 
-    public AuthController(AuthService authService) => _authService = authService;
+    public AuthController(AuthService authService, IPasswordTransportProtector passwordProtector)
+    {
+        _authService = authService;
+        _passwordProtector = passwordProtector;
+    }
+
+    [HttpGet("public-key")]
+    [EnableRateLimiting("auth-sensitive")]
+    [ProducesResponseType(typeof(ApiResponse<PasswordKeyDto>), StatusCodes.Status200OK)]
+    public ActionResult<ApiResponse<PasswordKeyDto>> PublicKey() =>
+        Ok(ApiResponse<PasswordKeyDto>.Ok(_passwordProtector.GetPublicKey()));
 
     [HttpPost("register")]
     [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status201Created)]

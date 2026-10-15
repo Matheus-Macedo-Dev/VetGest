@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.SignalR.Client;
+﻿using Microsoft.AspNetCore.SignalR.Client;
 using VetGest.Contracts.Chat;
 using VetGest.Web.Services.Auth;
 
@@ -22,6 +22,8 @@ public sealed class ChatRealtimeService : IAsyncDisposable
     public event Func<ChatMessageDto, Task>? MessageReceived;
 
     public event Func<Guid, Task>? ChatClosed;
+
+    public event Func<ChatNotificationDto, Task>? NotificationReceived;
 
     public event Func<HubConnectionState, Task>? StateChanged;
 
@@ -47,6 +49,12 @@ public sealed class ChatRealtimeService : IAsyncDisposable
         {
             if (MessageReceived is not null)
                 await MessageReceived.Invoke(message);
+        });
+
+        _connection.On<ChatNotificationDto>(ChatHubMethods.NotificationReceived, async notification =>
+        {
+            if (NotificationReceived is not null)
+                await NotificationReceived.Invoke(notification);
         });
 
         _connection.On<Guid>(ChatHubMethods.ChatClosed, async connectionId =>

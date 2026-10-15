@@ -1,0 +1,43 @@
+﻿@inject PushClientService Push
+
+<div class="push-toggle">
+    @switch (_status)
+    {
+        case PushStatus.Unsupported:
+            <p class="push-note">Este navegador não suporta notificações push.</p>
+            break;
+        case PushStatus.ServerDisabled:
+            <p class="push-note">Notificações push ainda não estão configuradas no servidor.</p>
+            break;
+        case PushStatus.Denied:
+            <p class="push-note">Notificações bloqueadas no navegador. Libere nas configurações do site para ativar.</p>
+            break;
+        default:
+            <MudSwitch T="bool" Value="@(_status == PushStatus.On)" ValueChanged="ToggleAsync" Disabled="_busy" Color="Color.Secondary" Label="Avisar de novas mensagens" />
+            <p class="push-note">Receba um aviso mesmo com o app fechado. O aviso não mostra o texto da mensagem.</p>
+            break;
+    }
+</div>
+
+@code {
+    private PushStatus _status = PushStatus.Unsupported;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => _status = await Push.GetStatusAsync();
+
+    private async Task ToggleAsync(bool enable)
+    {
+        _busy = true;
+        if (enable)
+        {
+            _status = await Push.EnableAsync();
+        }
+        else
+        {
+            await Push.DisableAsync();
+            _status = await Push.GetStatusAsync();
+        }
+
+        _busy = false;
+    }
+}

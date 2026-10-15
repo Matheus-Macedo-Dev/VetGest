@@ -1,0 +1,24 @@
+﻿@implements IDisposable
+@inject ChatNotificationService Notifications
+
+<AuthorizeView Roles="Vet,Tutor">
+    <a class="icon-btn bell-link" href="chat" aria-label="@BellLabel" title="@BellLabel">
+        <MudIcon Icon="@Icons.Material.Filled.NotificationsNone" aria-hidden="true" />
+        @if (Notifications.TotalUnread > 0)
+        {
+            <span class="count-badge" aria-hidden="true">@(Notifications.TotalUnread > 9 ? "9+" : Notifications.TotalUnread.ToString())</span>
+        }
+    </a>
+</AuthorizeView>
+
+@code {
+    private string BellLabel => Notifications.TotalUnread > 0
+        ? $"{Notifications.TotalUnread} mensagem(ns) não lida(s). Abrir chat"
+        : "Notificações: abrir chat";
+
+    protected override void OnInitialized() => Notifications.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Notifications.Changed -= OnChanged;
+}

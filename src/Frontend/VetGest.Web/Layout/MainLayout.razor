@@ -1,12 +1,30 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ChatNotificationService Notifications
 <MudThemeProvider Theme="@Theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 <div class="app-shell">
-    <aside class="app-sidebar">
-        <NavMenu />
+    <header class="app-topbar">
+        <a class="app-brand" href="" aria-label="VetGest, página inicial">
+            <span class="brand-mark" aria-hidden="true">V</span>
+            <span><strong>Vet</strong>Gest</span>
+        </a>
+        <div class="app-topbar-actions">
+            <ChatBell />
+            <button class="icon-btn" type="button" aria-label="@(_drawerOpen ? "Fechar menu" : "Abrir menu")" aria-expanded="@_drawerOpen" aria-controls="app-drawer" @onclick="ToggleDrawerAsync" @ref="_toggleButton">
+                <MudIcon Icon="@(_drawerOpen ? Icons.Material.Filled.Close : Icons.Material.Filled.Menu)" aria-hidden="true" />
+            </button>
+        </div>
+    </header>
+
+    <div class="app-overlay @(_drawerOpen ? "open" : null)" @onclick="CloseDrawerAsync" aria-hidden="true"></div>
+
+    <aside id="app-drawer" class="app-sidebar @(_drawerOpen ? "open" : null)" @onkeydown="OnDrawerKeyDown">
+        <NavMenu OnClose="CloseDrawerAsync" @ref="_navMenu" />
     </aside>
 
     <main class="app-main">
@@ -15,10 +33,10 @@
                 <p class="eyebrow">VETGEST · ESPAÇO DE CUIDADO</p>
                 <AuthorizeView>
                     <Authorized><span class="header-status"><span class="status-dot" aria-hidden="true"></span>Conta protegida</span></Authorized>
-                    <NotAuthorized><span class="header-status"><span class="status-dot" aria-hidden="true"></span>Modo demonstração</span></NotAuthorized>
+                    <NotAuthorized><span class="header-status"><span class="status-dot" aria-hidden="true"></span>Entre para continuar</span></NotAuthorized>
                 </AuthorizeView>
             </div>
-            <MudIconButton Icon="@Icons.Material.Filled.NotificationsNone" Color="Color.Inherit" aria-label="Notificações" />
+            <ChatBell />
         </header>
 
         <article class="app-content">
@@ -28,6 +46,66 @@
 </div>
 
 @code {
+    private bool _drawerOpen;
+    private bool _focusDrawerAfterRender;
+    private ElementReference _toggleButton;
+    private NavMenu? _navMenu;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        await SyncNotificationsAsync(AuthenticationStateProvider.GetAuthenticationStateAsync());
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusDrawerAfterRender && _navMenu is not null)
+        {
+            _focusDrawerAfterRender = false;
+            await _navMenu.FocusCloseButtonAsync();
+        }
+    }
+
+    private async Task ToggleDrawerAsync()
+    {
+        if (_drawerOpen)
+        {
+            await CloseDrawerAsync();
+            return;
+        }
+
+        _drawerOpen = true;
+        _focusDrawerAfterRender = true;
+    }
+
+    private async Task CloseDrawerAsync()
+    {
+        if (!_drawerOpen)
+            return;
+
+        _drawerOpen = false;
+        await _toggleButton.FocusAsync();
+    }
+
+    private async Task OnDrawerKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+            await CloseDrawerAsync();
+    }
+
+    private void OnAuthenticationStateChanged(Task<AuthenticationState> authState) =>
+        _ = InvokeAsync(() => SyncNotificationsAsync(authState));
+
+    private async Task SyncNotificationsAsync(Task<AuthenticationState> authState)
+    {
+        var user = (await authState).User;
+        if (user.Identity?.IsAuthenticated == true && (user.IsInRole("Vet") || user.IsInRole("Tutor")))
+            await Notifications.StartAsync();
+        else
+            Notifications.Stop();
+    }
+
+    public void Dispose() => AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     private static readonly MudTheme Theme = new()
     {
         PaletteLight = new PaletteLight

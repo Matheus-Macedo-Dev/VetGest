@@ -70,6 +70,10 @@ public class VetGestDbContext : IdentityDbContext<ApplicationUser, IdentityRole<
     /// </summary>
     public DbSet<VetConnection> VetConnections { get; set; } = null!;
 
+    public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
+
+    public DbSet<UserPushSubscription> PushSubscriptions { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -111,6 +115,8 @@ public class VetGestDbContext : IdentityDbContext<ApplicationUser, IdentityRole<
         modelBuilder.ApplyConfiguration(new PhaseConfiguration());
         modelBuilder.ApplyConfiguration(new AlertRuleConfiguration());
         modelBuilder.ApplyConfiguration(new VetConnectionConfiguration());
+        modelBuilder.ApplyConfiguration(new ChatMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new UserPushSubscriptionConfiguration());
     }
 
     /// <summary>

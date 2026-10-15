@@ -86,11 +86,25 @@ Configure these API App Settings in Azure App Service, without committing them:
 - Logged out: only Entrar / Criar conta. After login each role lands on its own area: Admin → `/admin/vets`, Vet → `/vet-connection`, Tutor → `/pets`.
 - A vet generates a one-time code (`POST api/vet-connections/codes`). The tutor enters it at `/vet-connection` and chooses which active pregnancy to share (`POST api/vet-connections/accept` with `PetId` and `PregnancyId`). Either party can end the connection; that cuts diary access and chat immediately. The older `POST api/vet-connections/invitations` endpoint still works but is deprecated and no longer used by the UI.
 - A linked vet sees the shared pet, an estimated due date and the tutor's diary entries **read-only** (`/vet/patients`, `GET api/vet/patients`). Access requires an Active connection owned by that vet.
-- Live chat (`/chat`, SignalR hub `/hubs/chat`) works between the two participants of an Active connection. Messages are relayed only and are **not stored**; membership is re-checked on every join and send, and the UI shows that the chat is not for emergencies.
+- Live chat (`/chat`, SignalR hub `/hubs/chat`) works between the two participants of an Active connection. Messages are **stored for 24 hours** (`Chat:RetentionHours`, cleaned up every 10 minutes and when a connection ends) so an offline party sees them later. Membership is re-checked on every join, send and history/read call, and the UI states that the chat is not for emergencies.
+- Notifications: the recipient gets an in-app toast ("Abrir"), an unread badge on the menu/bell, and, if they have no live connection, a browser push (Web Push). The push carries no message text. Push is opt-in per browser (menu, "Avisar de novas mensagens") and needs HTTPS (localhost is fine); on iOS the app must be installed to the home screen.
+- Push configuration (never commit the private key): generate a VAPID key pair (for example `npx web-push generate-vapid-keys`) and set `Push__PublicKey`, `Push__PrivateKey` and `Push__Subject` (`mailto:you@example.com`) as environment variables or user-secrets. Without them push is disabled and the UI says so.
+- Deactivating a vet or tutor (`/admin/vets`, `/admin/tutors`) blocks sign-in and invalidates their existing tokens on the next request.
+- Dates are shown and typed as `dd/MM/yyyy` (pt-BR).
 - SignalR clients authenticate with `access_token` in the query string (accepted only for `/hubs/*`).
 ### Accounts and CRMV
 
 Public sign-up only creates `Tutor` accounts. Veterinarians are created by an administrator at `/admin/vets`, which returns a one-time link (`/definir-senha`) for the vet to choose a password. The CRMV (number + UF) is validated only for format; there is no CFMV API (the search at `app.cfmv.gov.br` is reCAPTCHA-protected), so the administrator must confirm name, number, UF and active status there before creating the account.
+
+### Password transport
+
+Passwords are encrypted in the browser before they leave the page, so the request body shown in DevTools or a proxy log contains only ciphertext.
+
+- `GET /api/auth/public-key` returns the API's RSA-3072 public key (base64 SPKI) plus `algorithm` (`RSA-OAEP-256`) and `maxPasswordLength` (128). The key pair is generated in memory at startup and is never persisted.
+- The client encrypts the JSON envelope `{"p":"<password>","t":<unix-ms>}` with RSA-OAEP-SHA256 and sends the base64 result as `encryptedPassword` on `login`, `register` and `set-password`. The server rejects envelopes older than 5 minutes. If the key rotated (an API restart), the server answers `400` with the validation key `EncryptedPassword` and the client refetches the key and retries once.
+- `Auth__AllowPlaintextPassword` (default `true` only in Development) keeps the plain `password` fields working for curl and Swagger. Leave it off elsewhere, where an unencrypted password is refused.
+
+This layers on top of HTTPS, it does not replace it: TLS is still what protects the ciphertext in transit, and an attacker able to serve modified JavaScript captures the password before encryption. The 5-minute window limits replay rather than eliminating it, and because the key lives in a single process's memory, running more than one API instance requires a shared key before this can work across instances.
 
 ### Supabase PostgreSQL
 

@@ -77,6 +77,65 @@ public sealed class VetCollaborationTests : IClassFixture<VetGestApiFactory>
         Assert.Equal("Name vet-1", message.SenderName);
     }
 
+    [Fact]
+    public async Task Online_recipient_gets_in_app_notification_and_offline_recipient_gets_push_plus_history()
+    {
+        var connectionId = Guid.NewGuid();
+        _factory.VetConnectionService.AllowedChat.Add((connectionId, "vet-5"));
+        _factory.VetConnectionService.AllowedChat.Add((connectionId, "tutor-5"));
+        _factory.PushSender.Sent.Clear();
+
+        await using var vet = BuildChat("vet-5;Vet");
+        await vet.StartAsync();
+        await vet.InvokeAsync("JoinChat", connectionId);
+
+        // Offline recipient: nothing connected for tutor-5 yet, so push is used and the message is stored.
+        await vet.InvokeAsync("SendMessage", connectionId, "Você está aí?");
+        var push = Assert.Single(_factory.PushSender.Sent);
+        Assert.Equal("tutor-5", push.UserId);
+        Assert.DoesNotContain("Você está aí?", push.Message.Body);
+        Assert.Contains(connectionId.ToString("D"), push.Message.Url);
+
+        var tutorHttp = CreateClient("tutor-5", "Tutor");
+        var unread = await tutorHttp.GetFromJsonAsync<ApiResponse<List<ChatUnreadDto>>>("/api/chat/unread");
+        Assert.Equal(1, Assert.Single(unread!.Data!).UnreadCount);
+
+        var history = await tutorHttp.GetFromJsonAsync<ApiResponse<List<ChatMessageDto>>>($"/api/chat/{connectionId}/messages");
+        Assert.Equal("Você está aí?", Assert.Single(history!.Data!).Text);
+
+        Assert.Equal(HttpStatusCode.OK, (await tutorHttp.PostAsync($"/api/chat/{connectionId}/read", null)).StatusCode);
+        var after = await tutorHttp.GetFromJsonAsync<ApiResponse<List<ChatUnreadDto>>>("/api/chat/unread");
+        Assert.Empty(after!.Data!);
+
+        // Online recipient (connected, not in the chat group): gets the in-app signal and no push.
+        await using var tutor = BuildChat("tutor-5;Tutor");
+        var notified = new TaskCompletionSource<ChatNotificationDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        tutor.On<ChatNotificationDto>(ChatHubMethods.NotificationReceived, notification => notified.TrySetResult(notification));
+        await tutor.StartAsync();
+
+        _factory.PushSender.Sent.Clear();
+        await Task.Delay(500);
+        await vet.InvokeAsync("SendMessage", connectionId, "Agora sim");
+        var signal = await notified.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(connectionId, signal.ConnectionId);
+        Assert.Equal("Name vet-5", signal.SenderName);
+        Assert.Empty(_factory.PushSender.Sent);
+    }
+
+    [Fact]
+    public async Task Chat_history_is_limited_to_participants()
+    {
+        var connectionId = Guid.NewGuid();
+        _factory.VetConnectionService.AllowedChat.Add((connectionId, "vet-6"));
+        _factory.VetConnectionService.AllowedChat.Add((connectionId, "tutor-6"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync($"/api/chat/{connectionId}/messages")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await CreateClient("tutor-9", "Tutor").GetAsync($"/api/chat/{connectionId}/messages")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await CreateClient("tutor-9", "Tutor").PostAsync($"/api/chat/{connectionId}/read", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await CreateClient("vet-6", "Vet").GetAsync($"/api/chat/{connectionId}/messages")).StatusCode);
+    }
+
     private HubConnection BuildChat(string bearerToken) =>
         new HubConnectionBuilder()
             .WithUrl(new Uri(_factory.Server.BaseAddress, "/hubs/chat"), options =>

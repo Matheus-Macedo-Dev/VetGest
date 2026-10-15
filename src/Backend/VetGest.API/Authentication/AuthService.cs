@@ -13,11 +13,28 @@ public sealed class AuthService(
     RoleManager<IdentityRole<string>> roleManager,
     ITokenService tokenService,
     IConfiguration configuration,
-    RegistrationValidator registrationValidator)
+    RegistrationValidator registrationValidator,
+    PasswordResolver passwordResolver)
 {
     public async Task<AuthOperationResult> RegisterAsync(RegisterRequest request)
     {
-        var validationErrors = registrationValidator.Validate(request);
+        if (request is null)
+            return ValidationResult(new Dictionary<string, string[]>
+            {
+                [nameof(RegisterRequest.Email)] = ["Informe um e-mail válido."]
+            });
+
+        var password = passwordResolver.Resolve(
+            request.EncryptedPassword, request.Password, nameof(RegisterRequest.Password));
+        if (!password.Succeeded)
+            return ValidationResult(password.ToErrors());
+
+        var confirmPassword = passwordResolver.Resolve(
+            request.EncryptedConfirmPassword, request.ConfirmPassword, nameof(RegisterRequest.ConfirmPassword));
+        if (!confirmPassword.Succeeded)
+            return ValidationResult(confirmPassword.ToErrors());
+
+        var validationErrors = registrationValidator.Validate(request, password.Password, confirmPassword.Password);
         if (validationErrors.Count > 0)
             return ValidationResult(validationErrors);
 
@@ -36,7 +53,7 @@ public sealed class AuthService(
             EmailConfirmed = true
         };
 
-        var result = await userManager.CreateAsync(user, request.Password);
+        var result = await userManager.CreateAsync(user, password.Password);
         if (!result.Succeeded)
         {
             var errors = result.Errors
@@ -68,7 +85,17 @@ public sealed class AuthService(
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Token))
             return invalid;
 
-        if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal))
+        var newPassword = passwordResolver.Resolve(
+            request.EncryptedNewPassword, request.NewPassword, nameof(SetPasswordRequest.NewPassword));
+        if (!newPassword.Succeeded)
+            return ValidationResult(newPassword.ToErrors());
+
+        var confirmPassword = passwordResolver.Resolve(
+            request.EncryptedConfirmPassword, request.ConfirmPassword, nameof(SetPasswordRequest.ConfirmPassword));
+        if (!confirmPassword.Succeeded)
+            return ValidationResult(confirmPassword.ToErrors());
+
+        if (!string.Equals(newPassword.Password, confirmPassword.Password, StringComparison.Ordinal))
             return ValidationResult(new Dictionary<string, string[]>
             {
                 [nameof(SetPasswordRequest.ConfirmPassword)] = ["As senhas informadas não conferem."]
@@ -78,7 +105,7 @@ public sealed class AuthService(
         if (user is null || !user.IsActive)
             return invalid;
 
-        var result = await userManager.ResetPasswordAsync(user, request.Token, request.NewPassword);
+        var result = await userManager.ResetPasswordAsync(user, request.Token, newPassword.Password);
         if (!result.Succeeded)
         {
             var passwordErrors = result.Errors
@@ -96,14 +123,24 @@ public sealed class AuthService(
 
     public async Task<AuthOperationResult> LoginAsync(LoginRequest request)
     {
-        if (request is null || string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        if (request is null || string.IsNullOrWhiteSpace(request.Email))
             return InvalidCredentials();
+
+        var password = passwordResolver.Resolve(
+            request.EncryptedPassword, request.Password, nameof(LoginRequest.Password));
+        if (!password.Succeeded)
+        {
+            // Returned before the account is looked up, so this never reveals whether the email exists.
+            return password.ErrorKey == PasswordTransport.EncryptedPasswordErrorKey
+                ? ValidationResult(password.ToErrors())
+                : InvalidCredentials();
+        }
 
         var user = await userManager.FindByEmailAsync(request.Email.Trim());
         if (user is null || !user.IsActive)
             return InvalidCredentials();
 
-        var signInResult = await signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
+        var signInResult = await signInManager.CheckPasswordSignInAsync(user, password.Password, lockoutOnFailure: true);
         if (!signInResult.Succeeded)
             return InvalidCredentials();
 

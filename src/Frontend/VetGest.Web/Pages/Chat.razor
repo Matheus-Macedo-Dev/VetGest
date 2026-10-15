@@ -6,6 +6,8 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @inject VetConnectionService VetConnectionService
 @inject ChatRealtimeService ChatService
+@inject ChatApiService ChatApi
+@inject ChatNotificationService Notifications
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Chat | VetGest</PageTitle>
@@ -14,7 +16,7 @@
     <div class="page-heading"><div><span class="section-kicker">Conversa ao vivo</span><h1 id="chat-title">Chat</h1><p>Converse em tempo real com @(_isVet ? "seus tutores conectados" : "seu veterinário conectado").</p></div></div>
 
     <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
-        As mensagens não são salvas: ao recarregar a página a conversa some. Este chat não substitui atendimento.
+        As mensagens ficam salvas por 24 horas e depois são apagadas. Este chat não substitui atendimento.
         Em caso de emergência, procure atendimento veterinário imediato.
     </MudAlert>
 
@@ -92,6 +94,8 @@
     private bool _closed;
     private bool _sending;
 
+    [SupplyParameterFromQuery(Name = "connectionId")] public Guid? RequestedConnectionId { get; set; }
+
     private List<ChatMessageDto> CurrentMessages =>
         _messages.TryGetValue(_selectedId, out var list) ? list : [];
 
@@ -123,7 +127,10 @@
         _connections = (result.Data ?? []).Where(item => item.Status == "Active").ToList();
         _isLoading = false;
         if (_connections.Count > 0)
-            await SelectAsync(_selectedId != Guid.Empty && _connections.Any(item => item.Id == _selectedId) ? _selectedId : _connections[0].Id);
+        {
+            var preferred = new[] { RequestedConnectionId ?? Guid.Empty, _selectedId }.FirstOrDefault(id => id != Guid.Empty && _connections.Any(item => item.Id == id));
+            await SelectAsync(preferred != Guid.Empty ? preferred : _connections[0].Id);
+        }
     }
 
     private async Task SelectAsync(Guid connectionId)
@@ -136,6 +143,13 @@
             await ChatService.JoinAsync(connectionId);
             _joined.Add(connectionId);
             _state = ChatService.State;
+            Notifications.ActiveConnectionId = connectionId;
+
+            var history = await ChatApi.GetHistoryAsync(connectionId);
+            if (history.Succeeded)
+                _messages[connectionId] = history.Data?.ToList() ?? [];
+
+            await MarkReadAsync(connectionId);
         }
         catch (Exception exception)
         {
@@ -166,13 +180,24 @@
         }
     }
 
-    private Task OnMessageAsync(ChatMessageDto message)
+    private async Task OnMessageAsync(ChatMessageDto message)
     {
         if (!_messages.TryGetValue(message.ConnectionId, out var list))
             _messages[message.ConnectionId] = list = [];
 
-        list.Add(message);
-        return InvokeAsync(StateHasChanged);
+        if (list.All(item => item.Id != message.Id))
+            list.Add(message);
+
+        if (message.ConnectionId == _selectedId && message.SenderUserId != _userId)
+            await MarkReadAsync(message.ConnectionId);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task MarkReadAsync(Guid connectionId)
+    {
+        await ChatApi.MarkReadAsync(connectionId);
+        Notifications.MarkConversationRead(connectionId);
     }
 
     private Task OnClosedAsync(Guid connectionId)
@@ -192,7 +217,9 @@
     private string Label(VetConnectionDto connection)
     {
         var who = connection.VetUserId == _userId ? connection.TutorName : connection.VetName;
-        return string.IsNullOrWhiteSpace(connection.PetName) ? who ?? "—" : $"{who} · {connection.PetName}";
+        var label = string.IsNullOrWhiteSpace(connection.PetName) ? who ?? "—" : $"{who} · {connection.PetName}";
+        var unread = Notifications.UnreadFor(connection.Id);
+        return unread > 0 ? $"{label} ({unread} nova(s))" : label;
     }
 
     public async ValueTask DisposeAsync()
@@ -200,6 +227,9 @@
         ChatService.MessageReceived -= OnMessageAsync;
         ChatService.ChatClosed -= OnClosedAsync;
         ChatService.StateChanged -= OnStateAsync;
+        if (Notifications.ActiveConnectionId == _selectedId)
+            Notifications.ActiveConnectionId = null;
+
         foreach (var id in _joined)
         {
             try { await ChatService.LeaveAsync(id); } catch { }

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +7,8 @@ using System.Security.Claims;
 using VetGest.API.Authentication;
 using System.Threading.RateLimiting;
 using VetGest.API.Admin;
+using VetGest.Application.Chat;
+using VetGest.Application.Push;
 using VetGest.API.Authorization;
 using VetGest.Infrastructure;
 using VetGest.Infrastructure.Identity;
@@ -59,8 +61,29 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IVetConnectionRealtimePublisher, VetConnectionRealtimePublisher>();
 builder.Services.AddScoped<RegistrationValidator>();
+builder.Services.Configure<AuthTransportOptions>(options =>
+{
+    // Plaintext stays available in Development for curl and Swagger; every other environment
+    // requires the client to encrypt the password before sending it.
+    options.AllowPlaintextPassword = configuration.GetValue(
+        "Auth:AllowPlaintextPassword", builder.Environment.IsDevelopment());
+});
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IPasswordTransportProtector, RsaPasswordTransportProtector>();
+builder.Services.AddScoped<PasswordResolver>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IAdminVetService, AdminVetService>();
+builder.Services.AddScoped<IAdminTutorService, AdminTutorService>();
+builder.Services.AddSingleton(new ChatServiceOptions
+{
+    Retention = TimeSpan.FromHours(configuration.GetValue<double?>("Chat:RetentionHours") ?? 24)
+});
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddSingleton<IChatPresenceTracker, ChatPresenceTracker>();
+builder.Services.AddHostedService<ChatRetentionService>();
+builder.Services.AddSingleton(configuration.GetSection("Push").Get<PushOptions>() ?? new PushOptions());
+builder.Services.AddScoped<IPushSender, WebPushSender>();
+builder.Services.AddScoped<IPushSubscriptionService, PushSubscriptionService>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -144,7 +167,8 @@ builder.Services.AddAuthentication(options =>
                 context.Token = accessToken;
 
             return Task.CompletedTask;
-        }
+        },
+        OnTokenValidated = ActiveUserTokenValidator.ValidateAsync
     };
 
     // Log JWT bearer events in development
@@ -155,10 +179,10 @@ builder.Services.AddAuthentication(options =>
                 Console.WriteLine($"Authentication failed: {context.Exception.Message}");
                 return Task.CompletedTask;
             };
-        options.Events.OnTokenValidated = context =>
+        options.Events.OnTokenValidated = async context =>
             {
+                await ActiveUserTokenValidator.ValidateAsync(context);
                 Console.WriteLine($"Token validated for user: {context.Principal?.FindFirst("email")?.Value}");
-                return Task.CompletedTask;
             };
     }
 });

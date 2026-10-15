@@ -1,0 +1,171 @@
+/* Shell, navigation and readability layer. Mobile-first: base rules target phones, min-width queries add tablet/desktop. */
+
+:root {
+    --vg-muted: #465c58;          /* darker than before: >= 6:1 on the canvas and on light grey panels */
+    --vg-nav-text: #e6f1ed;       /* >= 11:1 on --vg-ink */
+    --vg-topbar-height: 60px;
+    --vg-touch: 44px;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body { overflow-x: hidden; }
+
+/* ---------- Shell ---------- */
+.app-shell { min-height: 100vh; min-height: 100dvh; background: var(--vg-canvas); }
+
+.app-topbar {
+    position: sticky; top: 0; z-index: 1100;
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+    min-height: var(--vg-topbar-height);
+    padding: env(safe-area-inset-top) max(.75rem, env(safe-area-inset-right)) 0 max(.75rem, env(safe-area-inset-left));
+    background: var(--vg-ink); color: #fff;
+}
+.app-topbar-actions { display: flex; align-items: center; gap: .25rem; }
+
+.app-brand, .nav-brand a {
+    display: inline-flex; align-items: center; gap: .65rem;
+    min-height: var(--vg-touch); color: #fff; font-size: 1.25rem; letter-spacing: .02em; text-decoration: none;
+}
+.app-brand strong, .nav-brand strong { color: var(--vg-mint); font-weight: 800; }
+.brand-mark {
+    display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px;
+    background: var(--vg-mint); color: var(--vg-ink); font-family: Georgia, serif; font-size: 1.2rem; font-weight: 700;
+}
+
+.icon-btn {
+    position: relative; display: inline-grid; place-items: center;
+    width: var(--vg-touch); height: var(--vg-touch); padding: 0;
+    border: 0; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; text-decoration: none;
+}
+.icon-btn:hover { background: rgba(255,255,255,.12); }
+.app-header .icon-btn { color: var(--vg-ink); }
+.app-header .icon-btn:hover { background: rgba(25,54,51,.08); }
+
+.count-badge {
+    position: absolute; top: 3px; right: 1px; min-width: 18px; height: 18px; padding: 0 5px;
+    border-radius: 9px; background: var(--vg-alert); color: #fff; font-size: .7rem; font-weight: 800; line-height: 18px; text-align: center;
+}
+.count-badge--inline { position: static; margin-left: auto; }
+
+/* Drawer: off-canvas on phones/tablets, opens from the left over a dimmed overlay. */
+.app-overlay {
+    position: fixed; inset: 0; z-index: 1200;
+    background: rgba(10,24,22,.6);
+    opacity: 0; visibility: hidden;
+    transition: opacity .2s ease, visibility 0s linear .2s;
+}
+.app-overlay.open { opacity: 1; visibility: visible; transition: opacity .2s ease; }
+
+.app-sidebar {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 1300;
+    width: min(86vw, 320px);
+    overflow-y: auto; overscroll-behavior: contain;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--vg-ink); color: var(--vg-nav-text);
+    transform: translateX(-100%); visibility: hidden;   /* hidden = not focusable, not read by screen readers */
+    transition: transform .25s ease, visibility 0s linear .25s;
+}
+.app-sidebar.open { transform: none; visibility: visible; box-shadow: 0 0 32px rgba(0,0,0,.35); transition: transform .25s ease; }
+body:has(.app-sidebar.open) { overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+    .app-overlay, .app-sidebar, .app-sidebar.open { transition: none; }
+}
+
+/* ---------- Navigation (global so it also styles the anchors rendered by NavLink) ---------- */
+.nav-brand {
+    display: flex; align-items: center; justify-content: space-between;
+    min-height: var(--vg-topbar-height); padding: env(safe-area-inset-top) .75rem 0 1rem;
+    border-bottom: 1px solid rgba(255,255,255,.12);
+}
+.nav-close { color: #fff; }
+.nav-scrollable { padding: .9rem .6rem 1.25rem; }
+.nav-scrollable nav { display: grid; gap: .25rem; }
+
+.nav-link {
+    display: flex; align-items: center; gap: .75rem;
+    width: 100%; min-height: var(--vg-touch); padding: .6rem .8rem;
+    border: 0; border-radius: 8px; background: transparent;
+    color: var(--vg-nav-text); font: inherit; font-size: .95rem; text-align: left; text-decoration: none; cursor: pointer;
+}
+.nav-link .mud-icon-root { flex: 0 0 auto; font-size: 1.3rem; color: var(--vg-mint); }
+.nav-link:hover { background: rgba(255,255,255,.1); color: #fff; }
+.nav-link.active { background: rgba(147,209,187,.22); color: #fff; font-weight: 700; }
+.nav-link:focus-visible, .icon-btn:focus-visible { outline: 3px solid #e7b64a; outline-offset: 2px; }
+
+.nav-footer { margin-top: 1rem; padding: .85rem .8rem 0; border-top: 1px solid rgba(255,255,255,.12); }
+.push-toggle .mud-switch-label { color: var(--vg-nav-text); font-size: .9rem; }
+.push-note { margin: .25rem 0 0; color: #c9dcd6; font-size: .78rem; line-height: 1.45; }
+
+/* ---------- Main area ---------- */
+.app-main { min-width: 0; }
+.app-header {
+    display: none;                        /* phones use the top bar; the content header appears from tablet up */
+    align-items: center; justify-content: space-between;
+    height: 76px; padding: 0 clamp(1rem, 4vw, 3.5rem);
+    border-bottom: 1px solid var(--vg-line); background: rgba(245,247,243,.92);
+}
+.eyebrow { display: block; margin: 0; color: var(--vg-teal); font-size: .67rem; font-weight: 800; letter-spacing: .12em; }
+.header-status { display: block; margin: .3rem 0 0; color: var(--vg-muted); font-size: .78rem; }
+.status-dot { display: inline-block; width: 7px; height: 7px; margin-right: .35rem; border-radius: 50%; background: var(--vg-gold); }
+.app-content {
+    max-width: 1180px; margin: 0 auto;
+    padding: 1.25rem max(1rem, env(safe-area-inset-right)) calc(4rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+}
+
+@media (min-width: 640px) {
+    .app-content { padding-top: 1.75rem; }
+}
+
+@media (min-width: 900px) {
+    .app-shell { display: flex; }
+    .app-header { display: flex; }
+    .app-topbar, .app-overlay, .nav-close { display: none; }
+    .app-sidebar {
+        position: sticky; top: 0; flex: 0 0 256px; width: 256px; height: 100vh; height: 100dvh;
+        transform: none; visibility: visible; box-shadow: none; transition: none;
+    }
+    .nav-brand { padding-left: 1.25rem; }
+    .app-main { flex: 1; }
+    .app-content { padding: 2rem clamp(1rem, 4vw, 3.5rem) 4rem; }
+}
+
+/* ---------- Readability on grey / tinted surfaces ---------- */
+.mud-button-root.mud-disabled,
+.mud-button-filled.mud-disabled,
+.mud-button-filled.mud-button-filled-primary.mud-disabled {
+    background-color: #dbe3df !important; color: #44564f !important; opacity: 1 !important;
+}
+.mud-button-text.mud-disabled, .mud-button-outlined.mud-disabled { color: #566a64 !important; opacity: 1 !important; }
+.mud-input-helper-text, .mud-input-label { color: var(--vg-muted); }
+.mud-simple-table .mud-table-container th { color: var(--vg-ink); font-weight: 800; background: #eaf0ed; }
+.mud-simple-table .mud-table-container td { color: var(--vg-ink); }
+.empty-note, .entry-count, .reference-note { color: var(--vg-muted); }
+.mud-alert-text-info { color: #0f4a6b; }
+.mud-alert-text-warning { color: #6b4a00; }
+.mud-alert-text-success { color: #1f5a2a; }
+.mud-alert-text-error { color: #7a1f1a; }
+.chat-panel small { opacity: .9; }
+
+/* ---------- Touch targets and forms (mobile-first) ---------- */
+.mud-button-root { min-height: var(--vg-touch); }
+.mud-icon-button { min-width: var(--vg-touch); min-height: var(--vg-touch); }
+.mud-input-control input, .mud-input-control textarea, .mud-select-input { font-size: 1rem; }  /* avoids iOS zoom on focus */
+.form-page, .vet-connection-page, .diary-page, .pets-page { width: 100%; }
+.mud-dialog { width: calc(100vw - 1.5rem); max-height: calc(100dvh - 1.5rem); }
+.mud-dialog .mud-dialog-content { overflow-y: auto; }
+
+/* Tables become stacked cards on phones */
+@media (max-width: 639.98px) {
+    .mud-simple-table table, .mud-simple-table tbody, .mud-simple-table tr, .mud-simple-table td { display: block; width: 100%; }
+    .mud-simple-table thead { display: none; }
+    .mud-simple-table tr { margin-bottom: .75rem; padding: .5rem .25rem; border: 1px solid var(--vg-line); border-radius: 8px; background: #fff; }
+    .mud-simple-table td { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .4rem .75rem; border: 0; text-align: right; }
+    .mud-simple-table td::before { content: attr(data-label); flex: 0 0 auto; color: var(--vg-muted); font-size: .78rem; font-weight: 800; text-align: left; }
+    .page-heading .mud-button-root { width: 100%; }
+}
+
+/* Chat composer stays reachable above the mobile keyboard */
+@media (max-width: 639.98px) {
+    .chat-panel { max-height: 55dvh; }
+}

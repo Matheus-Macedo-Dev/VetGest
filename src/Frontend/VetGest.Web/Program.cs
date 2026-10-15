@@ -6,7 +6,14 @@ using VetGest.Web.Services.Today;
 using VetGest.Web.Services.Api;
 using VetGest.Web.Services.Auth;
 using VetGest.Web.Services.Realtime;
+using System.Globalization;
 using VetGest.Web;
+using VetGest.Web.Shared;
+
+CultureInfo.DefaultThreadCurrentCulture = AppCulture.PtBr;
+CultureInfo.DefaultThreadCurrentUICulture = AppCulture.PtBr;
+CultureInfo.CurrentCulture = AppCulture.PtBr;
+CultureInfo.CurrentUICulture = AppCulture.PtBr;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -31,6 +38,7 @@ builder.Services.AddScoped(sp =>
 		BaseAddress = new Uri(baseUrl, UriKind.Absolute)
 	};
 });
+builder.Services.AddScoped<PasswordTransportProtector>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<PetService>();
 builder.Services.AddScoped<PregnancyService>();
@@ -40,8 +48,13 @@ builder.Services.AddScoped<ExaminationService>();
 builder.Services.AddScoped<DiaryService>();
 builder.Services.AddScoped<VetConnectionService>();
 builder.Services.AddScoped<AdminVetService>();
+builder.Services.AddScoped<AdminTutorService>();
 builder.Services.AddScoped<VetPatientService>();
 builder.Services.AddScoped<ChatRealtimeService>();
+builder.Services.AddScoped<ChatApiService>();
+builder.Services.AddScoped<ChatNotificationService>();
+builder.Services.AddScoped<PushApiService>();
+builder.Services.AddScoped<PushClientService>();
 builder.Services.AddScoped<VetConnectionRealtimeService>();
 builder.Services.AddScoped<LiveTodayService>();
 builder.Services.AddScoped<ITodayService, LiveTodayService>();

@@ -58,10 +58,15 @@ public class LoginRequest
     public string Email { get; set; } = string.Empty;
 
     /// <summary>
-    /// User's password (sent over HTTPS only).
+    /// Plaintext password. Only accepted when <c>Auth:AllowPlaintextPassword</c> is enabled.
+    /// Browser clients send <see cref="EncryptedPassword"/> instead.
     /// </summary>
-    [Required]
-    public string Password { get; set; } = string.Empty;
+    public string? Password { get; set; }
+
+    /// <summary>
+    /// Base64 RSA-OAEP envelope produced by the client. See <see cref="PasswordTransport"/>.
+    /// </summary>
+    public string? EncryptedPassword { get; set; }
 }
 
 /// <summary>
@@ -76,16 +81,25 @@ public class RegisterRequest
     public string Email { get; set; } = string.Empty;
 
     /// <summary>
-    /// User's password (minimum 8 characters with complexity).
+    /// Plaintext password. Only accepted when <c>Auth:AllowPlaintextPassword</c> is enabled.
     /// </summary>
-    [Required, MinLength(8)]
-    public string Password { get; set; } = string.Empty;
+    public string? Password { get; set; }
 
     /// <summary>
-    /// Password confirmation (must match Password).
+    /// Plaintext confirmation. Only accepted when <c>Auth:AllowPlaintextPassword</c> is enabled.
     /// </summary>
-    [Required, Compare(nameof(Password))]
-    public string ConfirmPassword { get; set; } = string.Empty;
+    public string? ConfirmPassword { get; set; }
+
+    /// <summary>
+    /// Base64 RSA-OAEP envelope for the password.
+    /// </summary>
+    public string? EncryptedPassword { get; set; }
+
+    /// <summary>
+    /// Base64 RSA-OAEP envelope for the confirmation. Compared after decryption, because
+    /// OAEP padding is randomised and two envelopes of the same password never match.
+    /// </summary>
+    public string? EncryptedConfirmPassword { get; set; }
 
     /// <summary>
     /// User's full name.
@@ -112,9 +126,23 @@ public class SetPasswordRequest
     [Required]
     public string Token { get; set; } = string.Empty;
 
-    [Required, MinLength(8)]
-    public string NewPassword { get; set; } = string.Empty;
+    /// <summary>
+    /// Plaintext password. Only accepted when <c>Auth:AllowPlaintextPassword</c> is enabled.
+    /// </summary>
+    public string? NewPassword { get; set; }
 
-    [Required, Compare(nameof(NewPassword))]
-    public string ConfirmPassword { get; set; } = string.Empty;
+    /// <summary>
+    /// Plaintext confirmation. Only accepted when <c>Auth:AllowPlaintextPassword</c> is enabled.
+    /// </summary>
+    public string? ConfirmPassword { get; set; }
+
+    /// <summary>
+    /// Base64 RSA-OAEP envelope for the new password.
+    /// </summary>
+    public string? EncryptedNewPassword { get; set; }
+
+    /// <summary>
+    /// Base64 RSA-OAEP envelope for the confirmation.
+    /// </summary>
+    public string? EncryptedConfirmPassword { get; set; }
 }

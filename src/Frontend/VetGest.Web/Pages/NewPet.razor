@@ -16,7 +16,7 @@
             <MudSelectItem Value="@("Cat")">Gato</MudSelectItem>
         </MudSelect>
         <MudTextField @bind-Value="_model.Breed" For="@(() => _model.Breed)" Label="Raça (opcional)" autocomplete="off" />
-        <MudDatePicker @bind-Date="_dateOfBirth" Label="Data de nascimento (opcional)" />
+        <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_dateOfBirth" Label="Data de nascimento (opcional)" />
         <MudNumericField @bind-Value="_model.CurrentWeight" For="@(() => _model.CurrentWeight)" Label="Peso atual (kg)" Min="0.01m" Max="999.99m" Adornment="Adornment.End" AdornmentText="kg" />
         <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isLoading" FullWidth="true" StartIcon="@Icons.Material.Filled.Save">
             @(_isLoading ? "Salvando..." : "Salvar pet")

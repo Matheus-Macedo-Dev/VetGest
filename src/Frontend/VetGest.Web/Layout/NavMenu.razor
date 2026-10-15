@@ -1,59 +1,70 @@
-﻿<div class="nav-brand">
-    <a href="" aria-label="VetGest, página inicial">
+﻿@implements IDisposable
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject ChatNotificationService Notifications
+@inject PushClientService Push
+
+<div class="nav-brand">
+    <a href="" aria-label="VetGest, página inicial" @onclick="Close">
         <span class="brand-mark" aria-hidden="true">V</span>
         <span><strong>Vet</strong>Gest</span>
     </a>
-    <button class="nav-toggle" title="Abrir menu de navegação" @onclick="ToggleNavMenu" aria-expanded="@(!collapseNavMenu)">
-        <MudIcon Icon="@Icons.Material.Filled.Menu" aria-hidden="true" />
+    <button class="icon-btn nav-close" type="button" aria-label="Fechar menu" @onclick="Close" @ref="_closeButton">
+        <MudIcon Icon="@Icons.Material.Filled.Close" aria-hidden="true" />
     </button>
 </div>
 
-<div class="@NavMenuCssClass nav-scrollable">
+<div class="nav-scrollable">
     <nav aria-label="Navegação principal">
         <AuthorizeView Context="anonymousContext">
             <NotAuthorized>
-                <NavLink class="nav-link" href="login" @onclick="CloseNavMenu">
+                <NavLink class="nav-link" href="login" @onclick="Close">
                     <MudIcon Icon="@Icons.Material.Filled.Login" aria-hidden="true" /> Entrar
                 </NavLink>
-                <NavLink class="nav-link" href="register" @onclick="CloseNavMenu">
+                <NavLink class="nav-link" href="register" @onclick="Close">
                     <MudIcon Icon="@Icons.Material.Filled.PersonAdd" aria-hidden="true" /> Criar conta
                 </NavLink>
             </NotAuthorized>
             <Authorized>
                 <AuthorizeView Roles="Admin" Context="adminContext">
-                    <NavLink class="nav-link" href="admin/vets" @onclick="CloseNavMenu">
+                    <NavLink class="nav-link" href="admin/vets" @onclick="Close">
                         <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" aria-hidden="true" /> Veterinários
+                    </NavLink>
+                    <NavLink class="nav-link" href="admin/tutors" @onclick="Close">
+                        <MudIcon Icon="@Icons.Material.Filled.Groups" aria-hidden="true" /> Tutores
                     </NavLink>
                 </AuthorizeView>
                 <AuthorizeView Roles="Vet" Context="vetContext">
-                    <NavLink class="nav-link" href="vet-connection" @onclick="CloseNavMenu">
+                    <NavLink class="nav-link" href="vet-connection" @onclick="Close">
                         <MudIcon Icon="@Icons.Material.Filled.Link" aria-hidden="true" /> Conexão com tutores
                     </NavLink>
-                    <NavLink class="nav-link" href="vet/patients" @onclick="CloseNavMenu">
+                    <NavLink class="nav-link" href="vet/patients" @onclick="Close">
                         <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" /> Pacientes
                     </NavLink>
-                    <NavLink class="nav-link" href="chat" @onclick="CloseNavMenu">
+                    <NavLink class="nav-link" href="chat" @onclick="Close">
                         <MudIcon Icon="@Icons.Material.Filled.Chat" aria-hidden="true" /> Chat
+                        @if (Notifications.TotalUnread > 0) { <span class="count-badge count-badge--inline" aria-label="@Notifications.TotalUnread não lidas">@Notifications.TotalUnread</span> }
                     </NavLink>
                 </AuthorizeView>
                 <AuthorizeView Roles="Tutor" Context="tutorContext">
-                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="CloseNavMenu">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="Close">
                         <MudIcon Icon="@Icons.Material.Filled.Today" aria-hidden="true" /> Hoje
                     </NavLink>
-                    <NavLink class="nav-link" href="pets" @onclick="CloseNavMenu">
+                    <NavLink class="nav-link" href="pets" @onclick="Close">
                         <MudIcon Icon="@Icons.Material.Filled.Pets" aria-hidden="true" /> Meus pets
                     </NavLink>
-                    <NavLink class="nav-link" href="diary" @onclick="CloseNavMenu">
+                    <NavLink class="nav-link" href="diary" @onclick="Close">
                         <MudIcon Icon="@Icons.Material.Filled.MenuBook" aria-hidden="true" /> Diário
                     </NavLink>
-                    <NavLink class="nav-link" href="exams" @onclick="CloseNavMenu">
+                    <NavLink class="nav-link" href="exams" @onclick="Close">
                         <MudIcon Icon="@Icons.Material.Filled.EventNote" aria-hidden="true" /> Exames e lembretes
                     </NavLink>
-                    <NavLink class="nav-link" href="vet-connection" @onclick="CloseNavMenu">
+                    <NavLink class="nav-link" href="vet-connection" @onclick="Close">
                         <MudIcon Icon="@Icons.Material.Filled.Link" aria-hidden="true" /> Conexão veterinária
                     </NavLink>
-                    <NavLink class="nav-link" href="chat" @onclick="CloseNavMenu">
+                    <NavLink class="nav-link" href="chat" @onclick="Close">
                         <MudIcon Icon="@Icons.Material.Filled.Chat" aria-hidden="true" /> Chat
+                        @if (Notifications.TotalUnread > 0) { <span class="count-badge count-badge--inline" aria-label="@Notifications.TotalUnread não lidas">@Notifications.TotalUnread</span> }
                     </NavLink>
                 </AuthorizeView>
                 <button class="nav-link nav-button" type="button" @onclick="LogoutAsync">
@@ -62,29 +73,34 @@
             </Authorized>
         </AuthorizeView>
     </nav>
+
+    <AuthorizeView Roles="Vet,Tutor" Context="pushContext">
+        <div class="nav-footer"><PushToggle /></div>
+    </AuthorizeView>
 </div>
 
 @code {
-    [Inject] private AuthService AuthService { get; set; } = null!;
-    [Inject] private NavigationManager Navigation { get; set; } = null!;
-    private bool collapseNavMenu = true;
+    private ElementReference _closeButton;
 
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    /// <summary>Raised when the drawer should close (link click, close button, logout).</summary>
+    [Parameter] public EventCallback OnClose { get; set; }
 
-    private void ToggleNavMenu()
-    {
-        collapseNavMenu = !collapseNavMenu;
-    }
+    protected override void OnInitialized() => Notifications.Changed += OnUnreadChanged;
 
-    private void CloseNavMenu()
-    {
-        collapseNavMenu = true;
-    }
+    public ValueTask FocusCloseButtonAsync() => _closeButton.FocusAsync();
+
+    private Task Close() => OnClose.InvokeAsync();
+
+    private void OnUnreadChanged() => _ = InvokeAsync(StateHasChanged);
 
     private async Task LogoutAsync()
     {
+        try { await Push.DisableAsync(); } catch { }
+        Notifications.Stop();
         await AuthService.LogoutAsync();
-        CloseNavMenu();
+        await Close();
         Navigation.NavigateTo("login");
     }
+
+    public void Dispose() => Notifications.Changed -= OnUnreadChanged;
 }

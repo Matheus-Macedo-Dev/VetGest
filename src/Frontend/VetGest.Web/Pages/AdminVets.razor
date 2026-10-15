@@ -43,11 +43,11 @@
                 @foreach (var vet in _vets)
                 {
                     <tr>
-                        <td>@vet.FullName</td>
-                        <td>@vet.Email</td>
-                        <td>@vet.Crmv</td>
-                        <td>@AdminVetCatalog.StatusLabel(vet)</td>
-                        <td>
+                        <td data-label="Nome">@vet.FullName</td>
+                        <td data-label="E-mail">@vet.Email</td>
+                        <td data-label="CRMV">@vet.Crmv</td>
+                        <td data-label="Situação">@AdminVetCatalog.StatusLabel(vet)</td>
+                        <td data-label="Ações">
                             <MudTooltip Text="Ver dados">
                                 <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" aria-label="@($"Ver dados de {vet.FullName}")" OnClick="() => OpenDetailsAsync(vet)" />
                             </MudTooltip>

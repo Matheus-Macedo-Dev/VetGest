@@ -40,7 +40,7 @@
             <DataAnnotationsValidator />
             @if (_formError is not null) { <MudAlert Severity="@(_isDuplicate ? Severity.Warning : Severity.Error)">@_formError</MudAlert> }
             @if (_validationErrors is not null) { <MudAlert Severity="Severity.Warning"><ValidationSummary />@foreach (var item in _validationErrors) { <div>@string.Join(" ", item.Value)</div> }</MudAlert> }
-            <MudDatePicker @bind-Date="_entryDate" Label="Data da observação" Required="true" Editable="true" MaxDate="@DateTime.Today" />
+            <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_entryDate" Label="Data da observação" Required="true" MaxDate="@DateTime.Today" />
             <div class="diary-form-grid">
                 <MudNumericField @bind-Value="_model.WeightKg" Label="Peso (kg)" Min="0.01m" Max="999.99m" InputMode="InputMode.numeric" Adornment="Adornment.End" AdornmentText="kg" />
                 <MudNumericField @bind-Value="_model.TemperatureCelsius" Label="Temperatura (°C)" Min="0m" Max="50m" InputMode="InputMode.numeric" Adornment="Adornment.End" AdornmentText="°C" />

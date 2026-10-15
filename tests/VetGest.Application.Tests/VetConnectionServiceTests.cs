@@ -257,7 +257,7 @@ public sealed class VetConnectionServiceTests
             DateTime.UtcNow.AddDays(1));
     }
 
-    private sealed class FakeRepository : IVetConnectionRepository
+    internal sealed class FakeRepository : IVetConnectionRepository
     {
         private readonly Pregnancy? _pregnancy;
         private readonly string _ownerId;

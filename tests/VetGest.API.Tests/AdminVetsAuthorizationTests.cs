@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using VetGest.API.Tests.Infrastructure;
 using VetGest.Contracts.Admin;
@@ -51,6 +51,28 @@ public sealed class AdminVetsAuthorizationTests : IClassFixture<VetGestApiFactor
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/admin/vets")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsync("/api/admin/vets/vet-1/setup-link", null)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsync("/api/admin/vets/vet-1/deactivate", null)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("Tutor")]
+    [InlineData("Vet")]
+    public async Task Non_admin_roles_are_forbidden_on_tutor_management(string role)
+    {
+        var client = CreateClient("user-1", role);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/admin/tutors")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync("/api/admin/tutors/t-1/deactivate", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync("/api/admin/tutors/t-1/activate", null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Anonymous_and_admin_access_to_tutor_management()
+    {
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync("/api/admin/tutors")).StatusCode);
+
+        var admin = CreateClient("admin-1", "Admin");
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/admin/tutors")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.PostAsync("/api/admin/tutors/t-1/deactivate", null)).StatusCode);
     }
 
     private HttpClient CreateClient(string userId, params string[] roles)

@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using VetGest.Application.Alerts;
+using VetGest.Application.Chat;
+using VetGest.Application.Push;
 using VetGest.Application.Pets;
 using VetGest.Application.Pregnancies;
 using VetGest.Infrastructure.Persistence;
@@ -43,6 +45,8 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IPregnancyDiaryRepository, PregnancyDiaryRepository>();
         services.AddScoped<IVetConnectionRepository, VetConnectionRepository>();
         services.AddScoped<IUserDirectory, IdentityUserDirectory>();
+        services.AddScoped<IChatRepository, ChatRepository>();
+        services.AddScoped<IPushSubscriptionRepository, PushSubscriptionRepository>();
         services.AddScoped<IAlertRuleRepository, AlertRuleRepository>();
 
         return services;

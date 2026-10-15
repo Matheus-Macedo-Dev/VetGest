@@ -1,0 +1,106 @@
+﻿@page "/admin/tutors"
+@attribute [Authorize(Roles = "Admin")]
+@inject AdminTutorService AdminTutorService
+@inject IDialogService DialogService
+
+<PageTitle>Tutores | VetGest</PageTitle>
+
+<section class="vet-connection-page" aria-labelledby="admin-tutors-title">
+    <div class="page-heading">
+        <div><span class="section-kicker">Administração</span><h1 id="admin-tutors-title">Tutores</h1><p>Contas de tutores cadastradas. Desativar uma conta impede o acesso imediatamente.</p></div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="state-panel" aria-live="polite"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /><span>Carregando tutores...</span></div>
+    }
+    else if (_error is not null)
+    {
+        <div class="state-panel state-error" role="alert"><MudIcon Icon="@(_offline ? Icons.Material.Filled.CloudOff : Icons.Material.Filled.ErrorOutline)" Size="Size.Large" /><div><strong>@(_offline ? "Sem conexão" : "Não foi possível carregar")</strong><span>@_error</span><MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="LoadAsync">Tentar novamente</MudButton></div></div>
+    }
+    else if (_tutors.Count == 0)
+    {
+        <div class="state-panel"><MudIcon Icon="@Icons.Material.Filled.PersonSearch" Size="Size.Large" /><span>Nenhum tutor cadastrado ainda.</span></div>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Hover="true">
+            <thead><tr><th>Nome</th><th>E-mail</th><th>Situação</th><th>Ações</th></tr></thead>
+            <tbody>
+                @foreach (var tutor in _tutors)
+                {
+                    <tr>
+                        <td data-label="Nome">@tutor.FullName</td>
+                        <td data-label="E-mail">@tutor.Email</td>
+                        <td data-label="Situação">@(tutor.IsActive ? "Ativo" : "Desativado")</td>
+                        <td data-label="Ações">
+                            <MudTooltip Text="Ver dados">
+                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" aria-label="@($"Ver dados de {tutor.FullName}")" OnClick="() => OpenDetailsAsync(tutor)" />
+                            </MudTooltip>
+                            <MudTooltip Text="@(tutor.IsActive ? "Desativar conta" : "Reativar conta")">
+                                <MudIconButton Icon="@(tutor.IsActive ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)" Color="@(tutor.IsActive ? Color.Error : Color.Success)" Size="Size.Small" Disabled="@_busyIds.Contains(tutor.UserId)" aria-label="@((tutor.IsActive ? "Desativar " : "Reativar ") + tutor.FullName)" OnClick="() => ToggleActiveAsync(tutor)" />
+                            </MudTooltip>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</section>
+
+@code {
+    private readonly HashSet<string> _busyIds = [];
+    private List<AdminTutorDto> _tutors = [];
+    private string? _error;
+    private bool _isLoading = true;
+    private bool _offline;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        var result = await AdminTutorService.ListAsync();
+        _isLoading = false;
+        if (!result.Succeeded)
+        {
+            _offline = result.IsOffline;
+            _error = result.IsUnauthorized ? "Sessão expirada ou sem permissão de administrador." : result.Error;
+            return;
+        }
+
+        _tutors = result.Data?.ToList() ?? [];
+    }
+
+    private Task OpenDetailsAsync(AdminTutorDto tutor) =>
+        DialogService.ShowAsync<TutorDetailsDialog>(
+            "Dados do tutor",
+            new DialogParameters<TutorDetailsDialog> { { dialog => dialog.Tutor, tutor } },
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
+
+    private async Task ToggleActiveAsync(AdminTutorDto tutor)
+    {
+        var disabling = tutor.IsActive;
+        var confirmed = await DialogService.ShowMessageBox(
+            disabling ? "Desativar conta" : "Reativar conta",
+            disabling
+                ? $"{tutor.FullName} não conseguirá mais entrar no VetGest. Deseja desativar?"
+                : $"{tutor.FullName} poderá voltar a entrar no VetGest. Deseja reativar?",
+            yesText: disabling ? "Desativar" : "Reativar",
+            cancelText: "Cancelar");
+        if (confirmed != true)
+            return;
+
+        _busyIds.Add(tutor.UserId);
+        var result = await AdminTutorService.SetActiveAsync(tutor.UserId, !disabling);
+        _busyIds.Remove(tutor.UserId);
+        if (!result.Succeeded)
+        {
+            _error = result.Error;
+            return;
+        }
+
+        await LoadAsync();
+    }
+}

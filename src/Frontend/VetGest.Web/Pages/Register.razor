@@ -1,4 +1,4 @@
-@page "/register"
+﻿@page "/register"
 @using Microsoft.AspNetCore.Components.Web
 @inject AuthService AuthService
 @inject NavigationManager Navigation
@@ -38,18 +38,7 @@
                       AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
                       OnAdornmentClick="TogglePasswordVisibility"
                       AdornmentAriaLabel="Mostrar ou ocultar senha" />
-        <ul class="password-checklist" aria-live="polite">
-            <li class="@GetRuleClass(_passwordRules.HasMinLength)"><MudIcon Icon="@GetRuleIcon(_passwordRules.HasMinLength)" aria-hidden="true" /><span>Pelo menos 8 caracteres</span></li>
-            <li class="@GetRuleClass(_passwordRules.HasUppercase)"><MudIcon Icon="@GetRuleIcon(_passwordRules.HasUppercase)" aria-hidden="true" /><span>Ao menos 1 letra maiúscula</span></li>
-            <li class="@GetRuleClass(_passwordRules.HasSpecial)"><MudIcon Icon="@GetRuleIcon(_passwordRules.HasSpecial)" aria-hidden="true" /><span>Ao menos 1 caractere especial</span></li>
-            <li class="@GetRuleClass(_passwordRules.HasLetterNumberSpecialCombination)"><MudIcon Icon="@GetRuleIcon(_passwordRules.HasLetterNumberSpecialCombination)" aria-hidden="true" /><span>Combinação com letra, número e caractere especial</span></li>
-        </ul>
-        <div class="password-strength" role="status" aria-live="polite">
-            <div class="password-strength-track" aria-hidden="true">
-                <span class="@($"password-strength-fill password-strength-{_passwordStrengthTone}")" style="width: @_passwordStrengthPercent%"></span>
-            </div>
-            <p>Força da senha: <strong>@_passwordStrengthLabel</strong>. @_passwordStrengthHint</p>
-        </div>
+        <PasswordStrengthMeter Password="@_model.Password" />
         @if (_showCapsLockWarning)
         {
             <p class="caps-lock-warning" role="status" aria-live="polite">
@@ -98,19 +87,13 @@
     private bool _showCapsLockWarning;
     private bool _passwordFieldFocused;
     private bool _confirmPasswordFieldFocused;
-    private bool _hasTypedPassword;
-    private PasswordRulesState _passwordRules;
-    private int _passwordStrengthPercent;
-    private string _passwordStrengthLabel = "Fraca";
-    private string _passwordStrengthHint = "Use pelo menos 8 caracteres e complete os requisitos abaixo.";
-    private string _passwordStrengthTone = "weak";
 
     private bool CanSubmit =>
         !_isLoading &&
         !_showSuccessFeedback &&
         !string.IsNullOrWhiteSpace(_model.FullName) &&
         !string.IsNullOrWhiteSpace(_model.Email) &&
-        _passwordRules.AllSatisfied &&
+        PasswordPolicy.IsSatisfied(_model.Password) &&
         PasswordsMatch;
 
     private bool PasswordsMatch =>
@@ -131,24 +114,9 @@
                 return "Informe seu e-mail para continuar.";
             }
 
-            if (!_passwordRules.HasMinLength)
+            if (!PasswordPolicy.IsSatisfied(_model.Password))
             {
-                return "A senha deve ter pelo menos 8 caracteres.";
-            }
-
-            if (!_passwordRules.HasUppercase)
-            {
-                return "Inclua ao menos uma letra maiúscula na senha.";
-            }
-
-            if (!_passwordRules.HasSpecial)
-            {
-                return "Inclua ao menos um caractere especial na senha.";
-            }
-
-            if (!_passwordRules.HasLetterNumberSpecialCombination)
-            {
-                return "Use uma combinação com letra, número e caractere especial.";
+                return "A senha precisa atender a todos os requisitos listados acima.";
             }
 
             if (!PasswordsMatch)
@@ -166,7 +134,6 @@
         set
         {
             _model.Password = value;
-            EvaluatePasswordStrength(value);
         }
     }
 
@@ -197,54 +164,6 @@
     }
 
     private IReadOnlyDictionary<string, string[]>? _validationErrors;
-
-    private void EvaluatePasswordStrength(string password)
-    {
-        _hasTypedPassword = !string.IsNullOrWhiteSpace(password);
-
-        if (string.IsNullOrWhiteSpace(password))
-        {
-            _passwordRules = PasswordRulesState.Empty;
-            _passwordStrengthPercent = 0;
-            _passwordStrengthLabel = "Fraca";
-            _passwordStrengthHint = "Use pelo menos 8 caracteres.";
-            _passwordStrengthTone = "weak";
-            return;
-        }
-
-        var hasLetter = password.Any(char.IsLetter);
-        var hasDigit = password.Any(char.IsDigit);
-        var hasSpecial = password.Any(ch => !char.IsLetterOrDigit(ch));
-        _passwordRules = new PasswordRulesState(
-            password.Length >= 8,
-            password.Any(char.IsUpper),
-            hasSpecial,
-            hasLetter && hasDigit && hasSpecial);
-
-        var satisfiedRules = CountSatisfiedRules(_passwordRules);
-        if (_passwordRules.AllSatisfied)
-        {
-            _passwordStrengthPercent = 100;
-            _passwordStrengthLabel = "Forte";
-            _passwordStrengthHint = "Senha pronta para cadastro.";
-            _passwordStrengthTone = "strong";
-            return;
-        }
-
-        if (satisfiedRules >= 2)
-        {
-            _passwordStrengthPercent = 62;
-            _passwordStrengthLabel = "Média";
-            _passwordStrengthHint = BuildMissingRulesHint(_passwordRules);
-            _passwordStrengthTone = "medium";
-            return;
-        }
-
-        _passwordStrengthPercent = 28;
-        _passwordStrengthLabel = "Fraca";
-        _passwordStrengthHint = BuildMissingRulesHint(_passwordRules);
-        _passwordStrengthTone = "weak";
-    }
 
     private void TogglePasswordVisibility() => _showPassword = !_showPassword;
 
@@ -301,81 +220,4 @@
         return (keyIsUpper && !args.ShiftKey) || (!keyIsUpper && args.ShiftKey);
     }
 
-    private string GetRuleClass(bool isSatisfied)
-    {
-        if (isSatisfied)
-        {
-            return "password-rule password-rule-pass";
-        }
-
-        return _hasTypedPassword
-            ? "password-rule password-rule-fail"
-            : "password-rule password-rule-pending";
-    }
-
-    private string GetRuleIcon(bool isSatisfied)
-    {
-        if (isSatisfied)
-        {
-            return Icons.Material.Filled.CheckCircle;
-        }
-
-        return _hasTypedPassword
-            ? Icons.Material.Filled.Cancel
-            : Icons.Material.Filled.RadioButtonUnchecked;
-    }
-
-    private static int CountSatisfiedRules(PasswordRulesState rules)
-    {
-        var total = 0;
-        if (rules.HasMinLength) total++;
-        if (rules.HasUppercase) total++;
-        if (rules.HasSpecial) total++;
-        if (rules.HasLetterNumberSpecialCombination) total++;
-        return total;
-    }
-
-    private static string BuildMissingRulesHint(PasswordRulesState rules)
-    {
-        var missingMask = 0;
-        if (!rules.HasMinLength) missingMask |= 1;
-        if (!rules.HasUppercase) missingMask |= 2;
-        if (!rules.HasSpecial) missingMask |= 4;
-        if (!rules.HasLetterNumberSpecialCombination) missingMask |= 8;
-
-        return missingMask switch
-        {
-            0 => "Senha pronta para cadastro.",
-            1 => "Falta: 8 caracteres.",
-            2 => "Falta: letra maiúscula.",
-            3 => "Falta: 8 caracteres, letra maiúscula.",
-            4 => "Falta: caractere especial.",
-            5 => "Falta: 8 caracteres, caractere especial.",
-            6 => "Falta: letra maiúscula, caractere especial.",
-            7 => "Falta: 8 caracteres, letra maiúscula, caractere especial.",
-            8 => "Falta: combinação letra + número + especial.",
-            9 => "Falta: 8 caracteres, combinação letra + número + especial.",
-            10 => "Falta: letra maiúscula, combinação letra + número + especial.",
-            11 => "Falta: 8 caracteres, letra maiúscula, combinação letra + número + especial.",
-            12 => "Falta: caractere especial, combinação letra + número + especial.",
-            13 => "Falta: 8 caracteres, caractere especial, combinação letra + número + especial.",
-            14 => "Falta: letra maiúscula, caractere especial, combinação letra + número + especial.",
-            _ => "Falta: 8 caracteres, letra maiúscula, caractere especial, combinação letra + número + especial."
-        };
-    }
-
-    private readonly record struct PasswordRulesState(
-        bool HasMinLength,
-        bool HasUppercase,
-        bool HasSpecial,
-        bool HasLetterNumberSpecialCombination)
-    {
-        public static PasswordRulesState Empty => new(false, false, false, false);
-
-        public bool AllSatisfied =>
-            HasMinLength &&
-            HasUppercase &&
-            HasSpecial &&
-            HasLetterNumberSpecialCombination;
-    }
 }

@@ -32,10 +32,10 @@
             <DataAnnotationsValidator />
             @if (_error is not null) { <MudAlert Severity="@(_offline ? Severity.Warning : Severity.Error)" ShowCloseIcon="true">@_error</MudAlert> }
             @if (_validationErrors is not null) { <MudAlert Severity="Severity.Warning"><ValidationSummary />@foreach (var item in _validationErrors) { <div>@string.Join(" ", item.Value)</div> }</MudAlert> }
-            <MudDatePicker @bind-Date="_matingDate" Label="Data de cobertura (obrigatória)" Required="true" Editable="true" />
-            <MudDatePicker @bind-Date="_ovulationDate" Label="Data de ovulação/progesterona (opcional)" Editable="true" />
+            <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_matingDate" Label="Data de cobertura (obrigatória)" Required="true" />
+            <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_ovulationDate" Label="Data de ovulação/progesterona (opcional)" />
             <p class="form-hint">Quando informada, a data de ovulação/progesterona será priorizada pelo cálculo do servidor em relação à data de cobertura.</p>
-            <MudDatePicker @bind-Date="_confirmedAt" Label="Data de confirmação (opcional)" Editable="true" />
+            <MudDatePicker DateFormat="dd/MM/yyyy" Editable="true" Mask="@(new DateMask("dd/MM/yyyy"))" Culture="@AppCulture.PtBr" Placeholder="dd/mm/aaaa" @bind-Date="_confirmedAt" Label="Data de confirmação (opcional)" />
             <MudTextField @bind-Value="_model.Notes" For="@(() => _model.Notes)" Label="Observações (opcional)" Lines="4" MaxLength="1000" />
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSubmitting" FullWidth="true" StartIcon="@Icons.Material.Filled.Save">@(_isSubmitting ? "Calculando..." : "Registrar gestação")</MudButton>
             <ValidationSummary />
